@@ -1,6 +1,7 @@
 import { estimateRank, renderLeaderboardHTML } from "./leaderboard";
 import { authManager } from "./auth";
 import { chancesManager } from "./chances";
+import { tournamentConfigManager } from "./tournamentConfig";
 
 export interface PerformanceStats {
   efficiencyGrade: string;
@@ -14,10 +15,10 @@ let modalEl: HTMLElement | null = null;
 
 export function createGameOverModal({
   onRestart,
-  onPlayPractice,
+  onGoToClassic,
 }: {
   onRestart: () => void;
-  onPlayPractice: () => void;
+  onGoToClassic: () => void;
 }) {
   if (modalEl) return;
 
@@ -44,7 +45,7 @@ export function createGameOverModal({
           </div>
           <div class="perf-chip">
             <span class="perf-chip-label">STRATEGY</span>
-            <span id="modalStrategyGrade" class="perf-chip-val">Expert</span>
+            <span id="modalStrategyGrade" class="perf-chip-val">S</span>
           </div>
         </div>
         <div class="perf-stats-row">
@@ -54,7 +55,7 @@ export function createGameOverModal({
       </div>
 
       <div id="chancesStatusBox" class="chances-box">
-        <span id="chancesLabel" class="chances-text">⚡ 3 of 3 chances left today</span>
+        <span id="chancesLabel" class="chances-text">🎟️ 3 of 3 tickets available today</span>
       </div>
 
       <div id="modalLeaderboardContainer"></div>
@@ -65,15 +66,15 @@ export function createGameOverModal({
       </button>
 
       <button class="modal-button share-invite-btn" id="inviteFriendsBtn" style="display: none;">
-        📲 Invite on WhatsApp (+2 Chances)
+        📲 Invite Friend on WhatsApp (+1 Ticket When They Play)
       </button>
 
       <div class="modal-button-row">
         <button class="modal-secondary-button" id="restartBtn">
-          🔄 Play Again
+          🎟️ Next Ticket Run
         </button>
-        <button class="modal-secondary-button" id="practiceModeBtn">
-          🎮 Practice Mode
+        <button class="modal-secondary-button" id="classicModeBtn">
+          🎯 Play Classic (Free)
         </button>
       </div>
     </div>
@@ -86,9 +87,9 @@ export function createGameOverModal({
     onRestart();
   });
 
-  document.getElementById("practiceModeBtn")?.addEventListener("click", () => {
+  document.getElementById("classicModeBtn")?.addEventListener("click", () => {
     hideModal();
-    onPlayPractice();
+    onGoToClassic();
   });
 
   document.getElementById("inviteFriendsBtn")?.addEventListener("click", () => {
@@ -97,20 +98,26 @@ export function createGameOverModal({
 
   document.getElementById("claimSpotBtn")?.addEventListener("click", () => {
     if (authManager.isLoggedIn()) {
-      const user = authManager.getUser();
-      alert(`Score submitted successfully for ${user}!`);
+      const profile = authManager.getProfile();
+      const score = parseInt(
+        document.getElementById("modalScore")?.textContent?.replace(/,/g, "") || "0",
+        10
+      );
+      const conf = tournamentConfigManager.getConfig();
+      const playerName = profile.nickname || "Player";
+      const message = encodeURIComponent(
+        `Hi! I'm ${playerName} and I scored ${score.toLocaleString()} in the ${conf.sponsorName} ${conf.tournamentTitle}! Please register my leaderboard position for the ${conf.totalPrizePool} prize pool.`
+      );
+      window.open(`https://wa.me/?text=${message}`, "_blank");
     } else {
       authManager.show();
     }
   });
+}
 
-  authManager.initAuthModal((phone, rank) => {
-    const claimBtn = document.getElementById("claimSpotBtn");
-    if (claimBtn) {
-      claimBtn.textContent = `✅ Saved as #${rank} (${phone})`;
-      claimBtn.setAttribute("disabled", "true");
-    }
-  });
+export function hideModal() {
+  if (!modalEl) return;
+  modalEl.classList.remove("active");
 }
 
 export function showModal(
@@ -120,14 +127,15 @@ export function showModal(
 ) {
   if (!modalEl) return;
 
+  const conf = tournamentConfigManager.getConfig();
   const badgeEl = document.getElementById("modalBadge");
-  const isPractice = chancesManager.isPracticeMode();
+  const isClassic = modeName.toLowerCase() === "classic";
 
   if (badgeEl) {
-    badgeEl.textContent = isPractice
-      ? `PRACTICE MODE (${modeName.toUpperCase()})`
-      : `WEEKLY TOURNAMENT (${modeName.toUpperCase()})`;
-    badgeEl.className = isPractice ? "modal-badge practice-badge" : "modal-badge";
+    badgeEl.textContent = isClassic
+      ? `CLASSIC (CASUAL)`
+      : `${conf.sponsorName.toUpperCase()} PRIZE RUN`;
+    badgeEl.className = "modal-badge";
   }
 
   const scoreEl = document.getElementById("modalScore");
@@ -163,21 +171,25 @@ export function showModal(
 
   const rank = estimateRank(score);
   const teaserEl = document.getElementById("modalRankTeaser");
+  const top1Reward = conf.prizeTiers[0]?.reward || `${conf.currencySymbol}250`;
+  const top2Reward = conf.prizeTiers[1]?.reward || `${conf.currencySymbol}150`;
+  const top3Reward = conf.prizeTiers[2]?.reward || `${conf.currencySymbol}100`;
+
   if (teaserEl) {
-    if (isPractice) {
-      teaserEl.innerHTML = `🎮 Warmup run! (Practice scores do not qualify for cash prizes)`;
+    if (isClassic) {
+      teaserEl.innerHTML = `🎯 Classic Casual Score: <strong>${score.toLocaleString()}</strong>`;
       teaserEl.className = "rank-teaser";
     } else if (rank === 1) {
-      teaserEl.innerHTML = `🌟 <strong>NEW #1 LEADER!</strong> Eligible for $250 Grand Prize!`;
+      teaserEl.innerHTML = `🌟 <strong>NEW #1 LEADER!</strong> Eligible for ${top1Reward} Grand Prize!`;
       teaserEl.className = "rank-teaser gold-glow";
     } else if (rank === 2) {
-      teaserEl.innerHTML = `🥈 <strong>RANK #2!</strong> Eligible for $150 Runner-Up Prize!`;
+      teaserEl.innerHTML = `🥈 <strong>RANK #2!</strong> Eligible for ${top2Reward} Runner-Up Prize!`;
       teaserEl.className = "rank-teaser gold-glow";
     } else if (rank === 3) {
-      teaserEl.innerHTML = `🥉 <strong>RANK #3!</strong> Eligible for $100 3rd Place Prize!`;
+      teaserEl.innerHTML = `🥉 <strong>RANK #3!</strong> Eligible for ${top3Reward} 3rd Place Prize!`;
       teaserEl.className = "rank-teaser top5-glow";
     } else if (rank <= 10) {
-      teaserEl.innerHTML = `🔥 Ranked <strong>#${rank}</strong> — Inside the Cash Prize Payout Pool!`;
+      teaserEl.innerHTML = `🔥 Ranked <strong>#${rank}</strong> — Inside the ${conf.totalPrizePool} Cash Payout Pool!`;
       teaserEl.className = "rank-teaser top5-glow";
     } else {
       teaserEl.innerHTML = `Official Entry Ranked: <strong>#${rank}</strong> this week`;
@@ -185,42 +197,37 @@ export function showModal(
     }
   }
 
-  // Chances & Viral Referral CTA
+  // Chances & Simple Ticket Display (Points 2 & 3: completely unambiguous)
   const chancesLeft = chancesManager.getChancesRemaining();
   const chancesLabel = document.getElementById("chancesLabel");
   const inviteFriendsBtn = document.getElementById("inviteFriendsBtn");
   const claimBtn = document.getElementById("claimSpotBtn");
   const restartBtn = document.getElementById("restartBtn");
-  const practiceModeBtn = document.getElementById("practiceModeBtn");
 
   if (chancesLabel) {
-    if (isPractice) {
-      chancesLabel.innerHTML = `🎮 <strong>Practice Mode:</strong> Zero tickets used. ${chancesLeft} official ticket${chancesLeft === 1 ? "" : "s"} ready.`;
+    if (isClassic) {
+      chancesLabel.innerHTML = `🎯 <strong>Classic Mode:</strong> Unlimited free casual play. Zero tickets used.`;
     } else if (chancesLeft > 0) {
-      chancesLabel.innerHTML = `⚡ <strong>Official Ticket Used:</strong> ${chancesLeft} tournament ticket${chancesLeft === 1 ? "" : "s"} remaining today`;
+      chancesLabel.innerHTML = `🎟️ <strong>Prize Run Finished:</strong> ${chancesLeft} of 3 daily tickets remaining.`;
     } else {
-      chancesLabel.innerHTML = `⚠️ <strong>0 tournament tickets left today!</strong>`;
+      chancesLabel.innerHTML = `⚠️ <strong>All 3 daily tickets used.</strong> Resets daily at midnight!`;
     }
   }
 
   if (restartBtn) {
-    if (isPractice) {
-      restartBtn.textContent = chancesLeft > 0 ? `🚀 Official Prize Run (${chancesLeft} Left)` : "🔄 Practice Again";
+    if (isClassic) {
+      restartBtn.textContent = "🔄 Play Classic Again";
     } else {
-      restartBtn.textContent = chancesLeft > 0 ? `⚡ Play Next Ticket (${chancesLeft} Left)` : "🔄 Play Again";
+      restartBtn.textContent = chancesLeft > 0 ? `🎟️ Play Next Ticket (${chancesLeft} Left)` : "🏆 Tournament Complete";
     }
   }
 
-  if (practiceModeBtn) {
-    practiceModeBtn.style.display = isPractice ? "none" : "flex";
-  }
-
   if (inviteFriendsBtn) {
-    inviteFriendsBtn.style.display = chancesLeft <= 1 ? "flex" : "none";
+    inviteFriendsBtn.style.display = !isClassic && chancesLeft <= 1 ? "flex" : "none";
   }
 
   if (claimBtn) {
-    claimBtn.style.display = isPractice ? "none" : "flex";
+    claimBtn.style.display = isClassic ? "none" : "flex";
     claimBtn.removeAttribute("disabled");
     claimBtn.textContent = "💬 Claim Your Prize Spot with WhatsApp";
   }
@@ -231,9 +238,4 @@ export function showModal(
   }
 
   modalEl.classList.add("active");
-}
-
-export function hideModal() {
-  if (!modalEl) return;
-  modalEl.classList.remove("active");
 }

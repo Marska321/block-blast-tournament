@@ -1918,14 +1918,16 @@ body.theme-paper .tourney-bar-sub {
   transform: translateY(-1px);
 }
 
-.modal-button.practice-run-btn {
+.modal-button.practice-run-btn,
+.modal-button.classic-return-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #e2e8f0;
   padding: 11px 14px;
 }
 
-.modal-button.practice-run-btn:hover {
+.modal-button.practice-run-btn:hover,
+.modal-button.classic-return-btn:hover {
   background: rgba(255, 255, 255, 0.14);
 }
 

@@ -56,6 +56,10 @@ import { wallpaperManager } from "./wallpaper";
 import { showWallpaperModal } from "./wallpaperModal";
 import { getPhotoRevealMode, unlockPhotoReveal } from "./photoReveal";
 import { referralManager } from "./referral";
+import {
+  tournamentConfigManager,
+  TournamentSponsorConfig,
+} from "./tournamentConfig";
 
 let currentTournamentToken: string | null = null;
 let currentTournamentSeed: number = 0;
@@ -472,47 +476,30 @@ function updateHUDChances() {
     return;
   }
 
-  const isPractice = chancesManager.isPracticeMode();
   const left = chancesManager.getChancesRemaining();
-  const sponsor = wallpaperManager.getSponsorConfig();
+  const conf = tournamentConfigManager.getConfig();
 
   if (chancesBadgeEl) {
     chancesBadgeEl.style.display = "flex";
-    if (isPractice) {
-      chancesBadgeEl.textContent = "🎮 WARMUP";
-      chancesBadgeEl.className = "chances-pill practice";
-    } else {
-      chancesBadgeEl.textContent = `⚡ ${left} LEFT TODAY`;
-      chancesBadgeEl.className = left > 0 ? "chances-pill active" : "chances-pill empty";
-    }
+    chancesBadgeEl.textContent = `🎟️ ${left} TICKET${left === 1 ? "" : "S"}`;
+    chancesBadgeEl.className = left > 0 ? "chances-pill active" : "chances-pill empty";
   }
 
   if (tournamentBannerEl) {
     tournamentBannerEl.style.display = "flex";
-    if (isPractice) {
-      tournamentBannerEl.className = "tournament-live-bar practice";
-      if (tourneyBannerTitleEl) tourneyBannerTitleEl.textContent = "🎮 PRACTICE WARMUP (UNRANKED)";
-      if (tourneyBannerSubEl) tourneyBannerSubEl.textContent = "0 Tickets Used • Unlimited Warmup";
-    } else {
-      tournamentBannerEl.className = "tournament-live-bar official";
-      if (tourneyBannerTitleEl) tourneyBannerTitleEl.textContent = `🏆 ${sponsor.name.toUpperCase()} PRIZE RUN`;
-      if (tourneyBannerSubEl) tourneyBannerSubEl.textContent = `${sponsor.prizeText} • Top 10 Payouts`;
-    }
+    tournamentBannerEl.className = "tournament-live-bar official";
+    if (tourneyBannerTitleEl) tourneyBannerTitleEl.textContent = `🏆 ${conf.sponsorName.toUpperCase()} PRIZE RUN`;
+    if (tourneyBannerSubEl) tourneyBannerSubEl.textContent = `${conf.totalPrizePool} Prize Pool • Top 10 Payouts`;
   }
 
   if (hudStakesTagEl) {
     hudStakesTagEl.style.display = "inline-block";
-    if (isPractice) {
-      hudStakesTagEl.textContent = "WARMUP";
-      hudStakesTagEl.className = "hud-stakes-tag practice";
-    } else {
-      hudStakesTagEl.textContent = "OFFICIAL RUN";
-      hudStakesTagEl.className = "hud-stakes-tag official";
-    }
+    hudStakesTagEl.textContent = "OFFICIAL RUN";
+    hudStakesTagEl.className = "hud-stakes-tag official";
   }
 
   if (hudScoreBoxEl) {
-    hudScoreBoxEl.classList.toggle("prize-active", !isPractice);
+    hudScoreBoxEl.classList.add("prize-active");
   }
 }
 
@@ -1521,16 +1508,13 @@ levelRestartBtn?.addEventListener("click", () => {
 
 function promptTournamentEntry() {
   const chancesLeft = chancesManager.getChancesRemaining();
-  const sponsor = wallpaperManager.getSponsorConfig();
   showPreTourneyModal({
-    modeName: `${sponsor.name} Cup`,
-    gridDesc: `${sponsor.prizeText} • ${sponsor.tagline}`,
     chancesRemaining: chancesLeft,
     onStartOfficial: () => {
       initTournamentGame(false);
     },
-    onStartPractice: () => {
-      initTournamentGame(true);
+    onGoToClassic: () => {
+      initClassicGame();
     },
     onInviteWhatsApp: () => {
       authManager.openReferralShare();
@@ -1562,25 +1546,17 @@ createGameOverModal({
     if (currentMode.id === GameModeId.CLASSIC) {
       initClassicGame();
     } else {
-      if (chancesManager.isPracticeMode()) {
-        promptTournamentEntry();
+      const left = chancesManager.getChancesRemaining();
+      if (left > 0) {
+        initTournamentGame(false);
       } else {
-        const left = chancesManager.getChancesRemaining();
-        if (left > 0) {
-          initTournamentGame(false);
-        } else {
-          promptTournamentEntry();
-        }
+        promptTournamentEntry();
       }
     }
   },
-  onPlayPractice: () => {
+  onGoToClassic: () => {
     hideModal();
-    if (currentMode.id === GameModeId.CLASSIC) {
-      initClassicGame();
-    } else {
-      initTournamentGame(true);
-    }
+    initClassicGame();
   },
 });
 
@@ -1705,3 +1681,13 @@ referralManager.pollReferralRewards().then((unclaimed) => {
     }, 1200);
   }
 });
+
+// Expose sponsor & tournament configuration helper to window for easy administrative customization
+(window as any).tournamentConfig = tournamentConfigManager;
+(window as any).setTournamentConfig = (config: Partial<TournamentSponsorConfig>) => {
+  tournamentConfigManager.updateConfig(config);
+  updateHUDChances();
+  console.log("Tournament config updated:", tournamentConfigManager.getConfig());
+};
+(window as any).getTournamentConfig = () => tournamentConfigManager.getConfig();
+

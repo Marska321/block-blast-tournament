@@ -1,3 +1,5 @@
+import { tournamentConfigManager } from "./tournamentConfig";
+
 export interface WallpaperTheme {
   id: string;
   name: string;
@@ -269,20 +271,29 @@ class WallpaperManager {
   }
 
   public getSponsorConfig(): SponsorConfig {
-    return { ...this.sponsorConfig };
+    const tConfig = tournamentConfigManager.getConfig();
+    return {
+      name: tConfig.sponsorName,
+      tagline: tConfig.sponsorTagline,
+      prizeText: `${tConfig.totalPrizePool} ${tConfig.tournamentTitle}`,
+      customImageData: this.sponsorConfig.customImageData || tConfig.sponsorWallpaperUrl || null,
+    };
   }
 
   public setSponsorConfig(config: Partial<SponsorConfig>) {
     if (config.name !== undefined) {
       this.sponsorConfig.name = config.name;
       localStorage.setItem(STORAGE_SPONSOR_NAME, config.name);
+      tournamentConfigManager.updateConfig({ sponsorName: config.name });
     }
     if (config.prizeText !== undefined) {
       this.sponsorConfig.prizeText = config.prizeText;
       localStorage.setItem(STORAGE_SPONSOR_PRIZE, config.prizeText);
+      tournamentConfigManager.updateConfig({ totalPrizePool: config.prizeText });
     }
     if (config.customImageData !== undefined) {
       this.sponsorConfig.customImageData = config.customImageData;
+      tournamentConfigManager.updateConfig({ sponsorWallpaperUrl: config.customImageData });
       if (config.customImageData) {
         try {
           localStorage.setItem(STORAGE_SPONSOR_IMAGE, config.customImageData);

@@ -1,4 +1,5 @@
 import { authManager } from "./auth";
+import { tournamentConfigManager } from "./tournamentConfig";
 
 const STORAGE_DATE_KEY = "bbt_chances_date";
 const STORAGE_CHANCES_KEY = "bbt_chances_count";
@@ -76,10 +77,12 @@ class ChancesManager {
     return `${base}?ref=${this.getMyReferralCode()}`;
   }
 
-  public getWhatsAppShareUrl(prizeTitle: string = "R500 Weekly Prize"): string {
+  public getWhatsAppShareUrl(prizeTitle?: string): string {
     const link = this.getReferralLink();
+    const conf = tournamentConfigManager.getConfig();
+    const effectivePrize = prizeTitle || `${conf.totalPrizePool} ${conf.tournamentTitle}`;
     const message = encodeURIComponent(
-      `🎮 I challenge you to the Block Blast Cash Cup! Top players win ${prizeTitle}. Beat my score on your phone (no download needed): ${link}`
+      `🎮 I challenge you to the ${conf.sponsorName} ${conf.tournamentTitle}! Top players win ${effectivePrize}. Beat my score on your phone (no download needed): ${link}`
     );
     return `https://wa.me/?text=${message}`;
   }
