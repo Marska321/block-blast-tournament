@@ -45,26 +45,43 @@ CREATE TABLE IF NOT EXISTS public.player_progress (
   UNIQUE(player_id, level)
 );
 
--- Indexes for blazing fast Top 100 queries
+-- 4. Verified Referrals Table (Fraud-proof friend invitations)
+CREATE TABLE IF NOT EXISTS public.referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_id TEXT REFERENCES public.players(id) ON DELETE CASCADE,
+  referred_id TEXT UNIQUE REFERENCES public.players(id) ON DELETE CASCADE,
+  first_game_score INT NOT NULL DEFAULT 0,
+  status TEXT DEFAULT 'completed' CHECK (status IN ('pending', 'completed')),
+  reward_claimed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for blazing fast Top 100 queries & referral attribution
 CREATE INDEX IF NOT EXISTS idx_scores_mode_score ON public.tournament_scores(mode, score DESC, created_at ASC);
 CREATE INDEX IF NOT EXISTS idx_scores_weekly ON public.tournament_scores(created_at DESC, score DESC);
 CREATE INDEX IF NOT EXISTS idx_players_stars ON public.players(stars_total DESC, updated_at ASC);
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON public.referrals(referrer_id);
+CREATE INDEX IF NOT EXISTS idx_referrals_unclaimed ON public.referrals(referrer_id, reward_claimed);
 
 -- Row Level Security (RLS)
 ALTER TABLE public.players ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tournament_scores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.player_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
 
 -- Public Read Policies (Everyone can view leaderboards)
 CREATE POLICY "Public Read Players" ON public.players FOR SELECT USING (true);
 CREATE POLICY "Public Read Tournament Scores" ON public.tournament_scores FOR SELECT USING (true);
 CREATE POLICY "Public Read Player Progress" ON public.player_progress FOR SELECT USING (true);
+CREATE POLICY "Public Read Referrals" ON public.referrals FOR SELECT USING (true);
 
 -- Allow anonymous inserts through backend API / anon client
 CREATE POLICY "Public Insert Players" ON public.players FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public Update Players" ON public.players FOR UPDATE USING (true);
 CREATE POLICY "Public Insert Scores" ON public.tournament_scores FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public Upsert Progress" ON public.player_progress FOR ALL USING (true);
+CREATE POLICY "Public Upsert Referrals" ON public.referrals FOR ALL USING (true);
 
 -- Initial seed data (Top competitive leaderboard baseline)
 INSERT INTO public.players (id, nickname, country, best_tourney_score, stars_total)

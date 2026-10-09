@@ -77,7 +77,7 @@ export function createPreTourneyModal() {
         </button>
 
         <button id="preTourneyInviteBtn" class="modal-button share-invite-btn" style="display: none;">
-          📲 Invite Friends on WhatsApp (+2 Tickets)
+          📲 Challenge Friend on WhatsApp (+1 Ticket When They Play)
         </button>
       </div>
     </div>

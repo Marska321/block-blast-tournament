@@ -55,6 +55,7 @@ import {
 import { wallpaperManager } from "./wallpaper";
 import { showWallpaperModal } from "./wallpaperModal";
 import { getPhotoRevealMode, unlockPhotoReveal } from "./photoReveal";
+import { referralManager } from "./referral";
 
 let currentTournamentToken: string | null = null;
 let currentTournamentSeed: number = 0;
@@ -975,6 +976,17 @@ function checkBoardGameOver(): boolean {
         showModal(score, currentMode.name, computePerformanceStats());
       }, 350);
     }
+
+    // Verify any pending referral if newcomer completed a game
+    referralManager.verifyPendingReferralOnFirstGame(score).then((res) => {
+      if (res.verified) {
+        updateHUDChances();
+        const centerBoardX = gridOffset.x + (currentMode.gridSize * gridOffset.cellSize) / 2;
+        const centerBoardY = gridOffset.y + (currentMode.gridSize * gridOffset.cellSize) / 2;
+        floatingTexts.spawnMilestone("🎁 WELCOME BONUS!", "+1 Bonus Ticket Unlocked!", centerBoardX, centerBoardY);
+      }
+    });
+
     return true;
   }
   return false;
@@ -1322,6 +1334,7 @@ function handlePointerUp() {
         );
         levelProgress.completeLevel(currentLvl, score, stars);
         levelFailCountMap[currentLvl] = 0;
+        referralManager.verifyPendingReferralOnFirstGame(score);
 
         setTimeout(() => {
           showLevelCompleteModal({
@@ -1669,3 +1682,18 @@ if (!tryResumeSavedGameSession()) {
   initLevelGame(startLevel);
 }
 gameLoop();
+
+// Poll for completed challenge referrals on game load
+referralManager.pollReferralRewards().then((unclaimed) => {
+  if (unclaimed > 0) {
+    updateHUDChances();
+    setTimeout(() => {
+      floatingTexts.spawnMilestone(
+        "🎉 CHALLENGE ACCEPTED!",
+        `+${unclaimed} Bonus Tournament Ticket${unclaimed > 1 ? "s" : ""} Unlocked!`,
+        logicalWidth / 2,
+        logicalHeight / 2
+      );
+    }, 1200);
+  }
+});

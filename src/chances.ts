@@ -1,46 +1,17 @@
+import { authManager } from "./auth";
+
 const STORAGE_DATE_KEY = "bbt_chances_date";
 const STORAGE_CHANCES_KEY = "bbt_chances_count";
 const STORAGE_BONUS_KEY = "bbt_bonus_chances";
-const STORAGE_REF_CODE_KEY = "bbt_my_ref_code";
-const STORAGE_REFERRED_BY_KEY = "bbt_referred_by";
 
 const DAILY_BASE_CHANCES = 3;
+const MAX_DAILY_CHANCES = 5; // Base 3 + up to 2 earned bonus tickets
 
 class ChancesManager {
-  private myRefCode: string = "";
-  private referredBy: string | null = null;
   private isPractice: boolean = false;
 
   constructor() {
-    this.initRefCode();
-    this.checkIncomingReferral();
     this.ensureDailyReset();
-  }
-
-  private initRefCode() {
-    let code = localStorage.getItem(STORAGE_REF_CODE_KEY);
-    if (!code) {
-      code = "BB-" + Math.random().toString(36).substring(2, 7).toUpperCase();
-      localStorage.setItem(STORAGE_REF_CODE_KEY, code);
-    }
-    this.myRefCode = code;
-  }
-
-  private checkIncomingReferral() {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const ref = urlParams.get("ref");
-      if (ref && ref !== this.myRefCode) {
-        if (!localStorage.getItem(STORAGE_REFERRED_BY_KEY)) {
-          localStorage.setItem(STORAGE_REFERRED_BY_KEY, ref);
-          this.referredBy = ref;
-          // Award newcomer a starter bonus chance!
-          this.addBonusChances(1);
-        }
-      }
-    } catch {
-      // Ignore URL parsing errors
-    }
   }
 
   private getTodayString(): string {
@@ -63,7 +34,7 @@ class ChancesManager {
     this.ensureDailyReset();
     const base = parseInt(localStorage.getItem(STORAGE_CHANCES_KEY) || String(DAILY_BASE_CHANCES), 10);
     const bonus = parseInt(localStorage.getItem(STORAGE_BONUS_KEY) || "0", 10);
-    return Math.max(0, base + bonus);
+    return Math.min(MAX_DAILY_CHANCES, Math.max(0, base + bonus));
   }
 
   public consumeChance(): boolean {
@@ -83,7 +54,7 @@ class ChancesManager {
     return false; // Out of tournament chances!
   }
 
-  public addBonusChances(count: number = 2) {
+  public addBonusChances(count: number = 1) {
     const current = parseInt(localStorage.getItem(STORAGE_BONUS_KEY) || "0", 10);
     localStorage.setItem(STORAGE_BONUS_KEY, String(current + count));
   }
@@ -97,22 +68,18 @@ class ChancesManager {
   }
 
   public getMyReferralCode(): string {
-    return this.myRefCode;
-  }
-
-  public getReferredBy(): string | null {
-    return this.referredBy || localStorage.getItem(STORAGE_REFERRED_BY_KEY);
+    return authManager.getPlayerId();
   }
 
   public getReferralLink(): string {
     const base = window.location.origin + window.location.pathname;
-    return `${base}?ref=${this.myRefCode}`;
+    return `${base}?ref=${this.getMyReferralCode()}`;
   }
 
-  public getWhatsAppShareUrl(prizeTitle: string = "weekly prize"): string {
+  public getWhatsAppShareUrl(prizeTitle: string = "R500 Weekly Prize"): string {
     const link = this.getReferralLink();
     const message = encodeURIComponent(
-      `🎮 Can you beat my score on Block Blast? The weekly tournament leader wins ${prizeTitle}! Play instantly here (no app needed): ${link}`
+      `🎮 I challenge you to the Block Blast Cash Cup! Top players win ${prizeTitle}. Beat my score on your phone (no download needed): ${link}`
     );
     return `https://wa.me/?text=${message}`;
   }
