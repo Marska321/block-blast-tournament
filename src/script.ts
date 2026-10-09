@@ -71,7 +71,7 @@ const leaderboardBtn = document.getElementById("leaderboard-btn");
 const chancesBadgeEl = document.getElementById("hud-chances-badge");
 const modeLevelsBtn = document.getElementById("mode-levels-btn");
 const modeClassicBtn = document.getElementById("mode-classic-btn");
-const modeBlitzBtn = document.getElementById("mode-blitz-btn");
+const modeTourneyBtn = document.getElementById("mode-tourney-btn");
 
 // Tournament live banner & stakes indicators
 const tournamentBannerEl = document.getElementById("tournament-banner");
@@ -307,8 +307,10 @@ function tryResumeSavedGameSession(): boolean {
           });
         }
       }
+    } else if (data.modeId === GameModeId.TOURNAMENT) {
+      initTournamentGame(false, true);
     } else {
-      initTournamentGame(data.modeId || GameModeId.CLASSIC, false, true);
+      initClassicGame(true);
     }
 
     if (Array.isArray(data.glowingPositions)) {
@@ -470,7 +472,7 @@ function resizeCanvas() {
 }
 
 function updateHUDChances() {
-  if (currentMode.id === GameModeId.LEVELS) {
+  if (currentMode.id !== GameModeId.TOURNAMENT) {
     if (chancesBadgeEl) chancesBadgeEl.style.display = "none";
     if (tournamentBannerEl) tournamentBannerEl.style.display = "none";
     if (hudStakesTagEl) hudStakesTagEl.style.display = "none";
@@ -480,11 +482,12 @@ function updateHUDChances() {
 
   const isPractice = chancesManager.isPracticeMode();
   const left = chancesManager.getChancesRemaining();
+  const sponsor = wallpaperManager.getSponsorConfig();
 
   if (chancesBadgeEl) {
     chancesBadgeEl.style.display = "flex";
     if (isPractice) {
-      chancesBadgeEl.textContent = "🎮 PRACTICE";
+      chancesBadgeEl.textContent = "🎮 WARMUP";
       chancesBadgeEl.className = "chances-pill practice";
     } else {
       chancesBadgeEl.textContent = `⚡ ${left} LEFT TODAY`;
@@ -496,12 +499,12 @@ function updateHUDChances() {
     tournamentBannerEl.style.display = "flex";
     if (isPractice) {
       tournamentBannerEl.className = "tournament-live-bar practice";
-      if (tourneyBannerTitleEl) tourneyBannerTitleEl.textContent = "🎮 PRACTICE MODE (UNRANKED)";
-      if (tourneyBannerSubEl) tourneyBannerSubEl.textContent = "0 Tickets Used • Warmup";
+      if (tourneyBannerTitleEl) tourneyBannerTitleEl.textContent = "🎮 PRACTICE WARMUP (UNRANKED)";
+      if (tourneyBannerSubEl) tourneyBannerSubEl.textContent = "0 Tickets Used • Unlimited Warmup";
     } else {
       tournamentBannerEl.className = "tournament-live-bar official";
-      if (tourneyBannerTitleEl) tourneyBannerTitleEl.textContent = "🏆 OFFICIAL PRIZE RUN";
-      if (tourneyBannerSubEl) tourneyBannerSubEl.textContent = "Top 10 Cash Eligible";
+      if (tourneyBannerTitleEl) tourneyBannerTitleEl.textContent = `🏆 ${sponsor.name.toUpperCase()} PRIZE RUN`;
+      if (tourneyBannerSubEl) tourneyBannerSubEl.textContent = `${sponsor.prizeText} • Top 10 Payouts`;
     }
   }
 
@@ -511,7 +514,7 @@ function updateHUDChances() {
       hudStakesTagEl.textContent = "WARMUP";
       hudStakesTagEl.className = "hud-stakes-tag practice";
     } else {
-      hudStakesTagEl.textContent = "OFFICIAL TICKET";
+      hudStakesTagEl.textContent = "OFFICIAL RUN";
       hudStakesTagEl.className = "hud-stakes-tag official";
     }
   }
@@ -524,7 +527,7 @@ function updateHUDChances() {
 function updateModeButtons() {
   modeLevelsBtn?.classList.toggle("active", currentMode.id === GameModeId.LEVELS);
   modeClassicBtn?.classList.toggle("active", currentMode.id === GameModeId.CLASSIC);
-  modeBlitzBtn?.classList.toggle("active", currentMode.id === GameModeId.BLITZ);
+  modeTourneyBtn?.classList.toggle("active", currentMode.id === GameModeId.TOURNAMENT);
 }
 
 function updateLevelHUD() {
@@ -682,8 +685,79 @@ function initLevelGame(
   }
 }
 
+function initClassicGame(isResume: boolean = false) {
+  hideModal();
+  hideLevelModal();
+  hideLevelSelect();
+  hidePreTourneyModal();
+
+  if (!isResume) {
+    clearActiveGameSession();
+    resetPerformanceMetrics();
+    activeGlowingPositions.clear();
+    activeGoldenPositions.clear();
+    pendingSpecialDeal = false;
+    lastAnnouncedMilestone = 0;
+    activeRevealedTiles.clear();
+    allTilesPreviouslyRevealed = false;
+  }
+
+  currentMode = GAME_MODES[GameModeId.CLASSIC];
+  currentLevelConfig = null;
+  currentWorldTheme = null;
+  activeGemPositions.clear();
+  activeObstaclePositions.clear();
+
+  // Classic is free endless play: unranked warmup stakes
+  chancesManager.setPracticeMode(true);
+
+  GAME_GRID = Array.from({ length: currentMode.gridSize }, () =>
+    Array(currentMode.gridSize).fill(0)
+  );
+  score = 0;
+  combo = 0;
+  gameOver = false;
+  activeBlock = null;
+
+  rng = createRNG(Date.now());
+  resizeCanvas();
+
+  createTrayBlocks({
+    availableBlocks,
+    canvasWidth: logicalWidth,
+    trayY: layout.trayY,
+    trayH: layout.trayH,
+    boardCellSize: layout.cellSize,
+    boardX: layout.boardX,
+    boardSize: layout.boardSize,
+    rng,
+    handSize: currentMode.handSize,
+    grid: GAME_GRID,
+    blocksPlaced: totalMovesPlaced,
+  });
+
+  particles.clear();
+  floatingTexts.clear();
+  comboBar.reset();
+  updateScoreUI();
+  updateHUDChances();
+  updateModeButtons();
+  updateLevelHUD();
+
+  const gameContainer = document.getElementById("game-container");
+  if (gameContainer) {
+    if (isPaperTheme) {
+      gameContainer.style.background = "none";
+      gameContainer.style.backgroundImage = "none";
+      gameContainer.style.backgroundColor = "#fbf8f2";
+      document.body.style.background = "#efe7d8";
+    } else {
+      wallpaperManager.apply(false); // Player's personal wallpaper
+    }
+  }
+}
+
 function initTournamentGame(
-  modeId: GameModeId,
   isPractice: boolean = false,
   isResume: boolean = false
 ) {
@@ -703,7 +777,7 @@ function initTournamentGame(
     allTilesPreviouslyRevealed = false;
   }
 
-  currentMode = GAME_MODES[modeId];
+  currentMode = GAME_MODES[GameModeId.TOURNAMENT];
   currentLevelConfig = null;
   currentWorldTheme = null;
   activeGemPositions.clear();
@@ -734,8 +808,7 @@ function initTournamentGame(
   if (!isPractice && !isResume) {
     const profile = authManager.getProfile();
     const playerId = profile?.id || "guest_" + Math.random().toString(36).substring(2, 9);
-    const modeKey = modeId === GameModeId.BLITZ ? "blitz" : "classic";
-    requestTournamentSessionToken(playerId, modeKey)
+    requestTournamentSessionToken(playerId, "classic")
       .then((data) => {
         currentTournamentToken = data.token;
         if (data.seed) {
@@ -771,9 +844,17 @@ function initTournamentGame(
   updateModeButtons();
   updateLevelHUD();
 
+  // Apply dedicated SPONSOR Wallpaper for official prize tournament
   const gameContainer = document.getElementById("game-container");
   if (gameContainer) {
-    gameContainer.style.background = isPaperTheme ? "#fbf8f2" : "#1e2942";
+    if (isPaperTheme) {
+      gameContainer.style.background = "none";
+      gameContainer.style.backgroundImage = "none";
+      gameContainer.style.backgroundColor = "#fbf8f2";
+      document.body.style.background = "#efe7d8";
+    } else {
+      wallpaperManager.apply(true); // Dedicated SPONSOR wallpaper!
+    }
   }
 }
 
@@ -859,21 +940,27 @@ function checkBoardGameOver(): boolean {
             }),
         });
       }, 350);
+    } else if (currentMode.id === GameModeId.CLASSIC) {
+      leaderboardManager.recordTourneyScore(score);
+      sessionManager.finishSession(score);
+      setTimeout(() => {
+        showModal(score, currentMode.name, computePerformanceStats());
+      }, 350);
     } else {
+      // Official Tournament Mode: Submit to cloud backend with anti-cheat token
       leaderboardManager.recordTourneyScore(score);
       sessionManager.finishSession(score);
 
       const profile = authManager.getProfile();
       const playerId = profile?.id || "guest_player";
       const nickname = profile?.nickname || "Guest Player";
-      const modeKey = currentMode.id === GameModeId.BLITZ ? "blitz" : "classic";
 
       submitTournamentScore({
         playerId,
         nickname,
         phone: profile?.phone,
         country: profile?.country,
-        mode: modeKey,
+        mode: "classic",
         score,
         linesCleared: totalLinesCleared,
         movesPlaced: totalMovesPlaced,
@@ -1253,7 +1340,7 @@ function handlePointerUp() {
                 onSelectLevel: (lvl) => initLevelGame(lvl),
                 onClose: () => {},
               }),
-            onGoTournament: () => initTournamentGame(GameModeId.CLASSIC),
+            onGoTournament: () => promptTournamentEntry(),
           });
         }, 350);
 
@@ -1377,7 +1464,11 @@ wallpaperBtn?.addEventListener("click", () => {
 });
 
 wallpaperManager.onChange(() => {
-  applyTheme(isPaperTheme);
+  if (currentMode.id === GameModeId.TOURNAMENT) {
+    wallpaperManager.apply(true);
+  } else {
+    applyTheme(isPaperTheme);
+  }
   invalidateBoardCache();
 });
 
@@ -1407,18 +1498,18 @@ levelRestartBtn?.addEventListener("click", () => {
   }
 });
 
-function promptTournamentEntry(modeId: GameModeId) {
-  const mode = GAME_MODES[modeId];
+function promptTournamentEntry() {
   const chancesLeft = chancesManager.getChancesRemaining();
+  const sponsor = wallpaperManager.getSponsorConfig();
   showPreTourneyModal({
-    modeName: mode.name,
-    gridDesc: mode.tagline,
+    modeName: `${sponsor.name} Cup`,
+    gridDesc: `${sponsor.prizeText} • ${sponsor.tagline}`,
     chancesRemaining: chancesLeft,
     onStartOfficial: () => {
-      initTournamentGame(modeId, false);
+      initTournamentGame(false);
     },
     onStartPractice: () => {
-      initTournamentGame(modeId, true);
+      initTournamentGame(true);
     },
     onInviteWhatsApp: () => {
       authManager.openReferralShare();
@@ -1428,43 +1519,47 @@ function promptTournamentEntry(modeId: GameModeId) {
 }
 
 modeClassicBtn?.addEventListener("click", () => {
-  promptTournamentEntry(GameModeId.CLASSIC);
+  initClassicGame();
 });
 
-modeBlitzBtn?.addEventListener("click", () => {
-  promptTournamentEntry(GameModeId.BLITZ);
+modeTourneyBtn?.addEventListener("click", () => {
+  promptTournamentEntry();
 });
 
 chancesBadgeEl?.addEventListener("click", () => {
-  if (currentMode.id !== GameModeId.LEVELS) {
-    promptTournamentEntry(currentMode.id);
-  }
+  promptTournamentEntry();
 });
 
 tournamentBannerEl?.addEventListener("click", () => {
-  if (currentMode.id !== GameModeId.LEVELS) {
-    promptTournamentEntry(currentMode.id);
-  }
+  promptTournamentEntry();
 });
 
 // Setup Tournament Game Over Modal
 createGameOverModal({
   onRestart: () => {
     hideModal();
-    if (chancesManager.isPracticeMode()) {
-      promptTournamentEntry(currentMode.id);
+    if (currentMode.id === GameModeId.CLASSIC) {
+      initClassicGame();
     } else {
-      const left = chancesManager.getChancesRemaining();
-      if (left > 0) {
-        initTournamentGame(currentMode.id, false);
+      if (chancesManager.isPracticeMode()) {
+        promptTournamentEntry();
       } else {
-        promptTournamentEntry(currentMode.id);
+        const left = chancesManager.getChancesRemaining();
+        if (left > 0) {
+          initTournamentGame(false);
+        } else {
+          promptTournamentEntry();
+        }
       }
     }
   },
   onPlayPractice: () => {
     hideModal();
-    initTournamentGame(currentMode.id, true);
+    if (currentMode.id === GameModeId.CLASSIC) {
+      initClassicGame();
+    } else {
+      initTournamentGame(true);
+    }
   },
 });
 
@@ -1488,8 +1583,8 @@ function gameLoop() {
   if (isPaperTheme) {
     ctx.fillStyle = "#fbf8f2";
     ctx.fillRect(0, 0, logicalWidth, logicalHeight);
-  } else if (wallpaperManager.isCustomActive()) {
-    // Semi-transparent contrast scrim over custom uploaded photos
+  } else if (wallpaperManager.isCustomActive(currentMode.id === GameModeId.TOURNAMENT)) {
+    // Semi-transparent contrast scrim over custom uploaded photos OR tournament sponsor wallpaper
     ctx.fillStyle = `rgba(10, 15, 29, ${wallpaperManager.getDimming()})`;
     ctx.fillRect(0, 0, logicalWidth, logicalHeight);
   }

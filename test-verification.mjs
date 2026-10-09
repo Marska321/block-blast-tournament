@@ -291,9 +291,22 @@ import('./src/levels.js').catch(async () => {
   const [badPayload, badSig] = tamperedToken.split('.');
   const computedBadSig = crypto.createHmac('sha256', secret).update(badPayload).digest('hex');
   assert.notStrictEqual(badSig, computedBadSig, 'Tampered token must fail HMAC validation');
-  console.log('✔ Supabase Schema, Vercel Config & Anti-Cheat HMAC Token Security verified');
+  console.log('16. Testing Dedicated Tournament Mode, Blitz Removal & Sponsor Wallpaper...');
+  const modesSource = fs.readFileSync('src/modes.ts', 'utf8');
+  assert(modesSource.includes('TOURNAMENT = "tournament"'), 'GameModeId must have TOURNAMENT');
+  assert(!modesSource.includes('BLITZ = "blitz"'), 'Blitz must be removed from GameModeId');
 
-  console.log('\nAll 15 verification tests passed successfully!');
+  const wallpaperSource = fs.readFileSync('src/wallpaper.ts', 'utf8');
+  assert(wallpaperSource.includes('DEFAULT_SPONSOR_SVG'), 'Sponsor wallpaper SVG must be defined');
+  assert(wallpaperSource.includes('getSponsorConfig'), 'WallpaperManager must expose getSponsorConfig');
+  assert(wallpaperSource.includes('isTournament'), 'apply() must accept isTournament flag');
+
+  const indexSource = fs.readFileSync('index.html', 'utf8');
+  assert(indexSource.includes('id="mode-tourney-btn"'), 'index.html must have mode-tourney-btn');
+  assert(!indexSource.includes('id="mode-blitz-btn"'), 'index.html must not have mode-blitz-btn');
+  console.log('✔ Dedicated Tournament Mode, Blitz Removal & Sponsor Wallpaper verified');
+
+  console.log('\nAll 16 verification tests passed successfully!');
 });
 
 

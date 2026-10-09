@@ -1,7 +1,7 @@
 export enum GameModeId {
   LEVELS = "levels",
   CLASSIC = "classic",
-  BLITZ = "blitz",
+  TOURNAMENT = "tournament",
 }
 
 export interface ModeConfig {
@@ -27,19 +27,19 @@ export const GAME_MODES: Record<GameModeId, ModeConfig> = {
   [GameModeId.CLASSIC]: {
     id: GameModeId.CLASSIC,
     name: "Classic",
-    tagline: "8×8 Strategic Tournament",
+    tagline: "Endless Casual Mode",
     gridSize: 8,
     handSize: 3,
-    badge: "COMPETITIVE",
+    badge: "ENDLESS",
     icon: "🎯",
   },
-  [GameModeId.BLITZ]: {
-    id: GameModeId.BLITZ,
-    name: "Blitz",
-    tagline: "10×10 & 5 Pieces",
-    gridSize: 10,
-    handSize: 5,
-    badge: "HIGH COMBO",
-    icon: "⚡",
+  [GameModeId.TOURNAMENT]: {
+    id: GameModeId.TOURNAMENT,
+    name: "Tournament",
+    tagline: "Weekly Sponsor Prize Cup",
+    gridSize: 8,
+    handSize: 3,
+    badge: "PRIZE CUP",
+    icon: "🏆",
   },
 };

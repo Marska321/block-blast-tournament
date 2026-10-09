@@ -38,7 +38,7 @@ export function createWallpaperModal() {
       <button class="modal-close-corner" id="closeWallpaperBtn" aria-label="Close">✕</button>
       <div class="modal-badge wallpaper-badge">🎨 CUSTOMIZE LOOK & FEEL</div>
       <h2 class="modal-title">Themes & Block Skins</h2>
-      <p class="pretourney-subtitle">Choose authentic block skins, board themes, or upload a photo wallpaper</p>
+      <p class="pretourney-subtitle">Choose authentic block skins, board themes, or custom photos (Tournament mode uses official Sponsor Wallpaper)</p>
 
       <div id="wallpaperStatusToast" class="wallpaper-status-toast" style="display: none;"></div>
 

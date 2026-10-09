@@ -229,6 +229,26 @@ html, body {
   transform: scale(0.98);
 }
 
+.mode-tab.tourney-tab {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fef08a;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  font-weight: 800;
+}
+
+.mode-tab.tourney-tab:hover {
+  background: rgba(251, 191, 36, 0.22);
+  color: #ffffff;
+  border-color: rgba(251, 191, 36, 0.6);
+}
+
+.mode-tab.tourney-tab.active {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  color: #ffffff;
+  border-color: #fbbf24;
+  box-shadow: 0 2px 14px rgba(217, 119, 6, 0.55);
+}
+
 /* Combo Bar */
 #combo-bar-container {
   width: 100%;
