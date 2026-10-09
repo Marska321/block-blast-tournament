@@ -48,6 +48,10 @@ html, body {
 #gameCanvas {
   display: block;
   touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transform: translateZ(0);
 }
 
 #hud-overlay {

@@ -378,21 +378,11 @@ let score = 0;
 let combo = 0;
 let gameOver = false;
 
-const DRAG_JUMP_LENGTH = 110; // Base vertical lift on touch devices to clear user's thumb
+const DRAG_JUMP_LENGTH = 92; // Consistent vertical lift on touch devices to clear user's thumb
 
-function computeDragLift(pointerY: number, isTouch: boolean): number {
+function computeDragLift(isTouch: boolean): number {
   if (!isTouch) return 0;
-  // Over the lower half of the board and tray, apply full DRAG_JUMP_LENGTH.
-  // As the touch approaches the top of the board, taper smoothly to 0 so
-  // the piece never lifts above the board boundary into the HUD.
-  const boardTop = gridOffset.y;
-  const taperZone = gridOffset.cellSize * 3.5;
-  const taperThreshold = boardTop + taperZone;
-  if (pointerY >= taperThreshold) {
-    return DRAG_JUMP_LENGTH;
-  }
-  const ratio = Math.max(0, (pointerY - boardTop) / taperZone);
-  return Math.round(DRAG_JUMP_LENGTH * ratio);
+  return DRAG_JUMP_LENGTH;
 }
 
 let availableBlocks: TrayBlock[] = [];
@@ -446,7 +436,8 @@ function resizeCanvas() {
   logicalWidth = Math.min(rect.width || window.innerWidth, 500);
   logicalHeight = rect.height || window.innerHeight;
 
-  dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  cachedCanvasRect = null;
+  dpr = Math.min(window.devicePixelRatio || 1, 2.0);
   setSpriteScale(dpr); // re-renders cached block sprites at the new pixel density
   invalidateBoardCache();
   canvas.width = Math.floor(logicalWidth * dpr);
@@ -870,13 +861,17 @@ function updateScoreUI() {
 }
 
 // Unified Pointer Handlers
+let cachedCanvasRect: DOMRect | null = null;
+
 function getCanvasCoords(clientX: number, clientY: number): { x: number; y: number } {
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = logicalWidth / rect.width;
-  const scaleY = logicalHeight / rect.height;
+  if (!cachedCanvasRect) {
+    cachedCanvasRect = canvas.getBoundingClientRect();
+  }
+  const scaleX = logicalWidth / cachedCanvasRect.width;
+  const scaleY = logicalHeight / cachedCanvasRect.height;
   return {
-    x: (clientX - rect.left) * scaleX,
-    y: (clientY - rect.top) * scaleY,
+    x: (clientX - cachedCanvasRect.left) * scaleX,
+    y: (clientY - cachedCanvasRect.top) * scaleY,
   };
 }
 
@@ -1014,7 +1009,7 @@ function handlePointerDown(clientX: number, clientY: number, isTouch: boolean) {
     ) {
       const pieceCenterRelX = (block.shape[0].length * layout.cellSize) / 2;
       const pieceCenterRelY = (block.shape.length * layout.cellSize) / 2;
-      const lift = computeDragLift(y, isTouch);
+      const lift = computeDragLift(isTouch);
 
       activeBlock = {
         shape: block.shape,
@@ -1042,7 +1037,7 @@ function handlePointerMove(clientX: number, clientY: number) {
   if (!activeBlock) return;
 
   const { x, y } = getCanvasCoords(clientX, clientY);
-  const currentLift = computeDragLift(y, activeBlock.isTouch);
+  const currentLift = computeDragLift(activeBlock.isTouch);
   activeBlock.visualX = x - activeBlock.grabOffsetX;
   activeBlock.visualY = y - activeBlock.pieceCenterRelY - currentLift;
 }
@@ -1407,31 +1402,44 @@ function handlePointerUp() {
 // Unified Pointer Events (mouse + touch + pen) - replaces separate mouse/touch listeners
 let activePointerId: number | null = null;
 
-canvas.addEventListener("pointerdown", (e) => {
-  if (activePointerId !== null) return;
-  e.preventDefault();
-  handlePointerDown(e.clientX, e.clientY, e.pointerType !== "mouse");
-  if (activeBlock) {
-    activePointerId = e.pointerId;
-    canvas.setPointerCapture(e.pointerId);
-  }
-});
+canvas.addEventListener(
+  "pointerdown",
+  (e) => {
+    if (activePointerId !== null) return;
+    e.preventDefault();
+    cachedCanvasRect = canvas.getBoundingClientRect();
+    handlePointerDown(e.clientX, e.clientY, e.pointerType !== "mouse");
+    if (activeBlock) {
+      activePointerId = e.pointerId;
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch {}
+    }
+  },
+  { passive: false }
+);
 
-canvas.addEventListener("pointermove", (e) => {
-  if (e.pointerId !== activePointerId) return;
-  e.preventDefault();
-  handlePointerMove(e.clientX, e.clientY);
-});
+canvas.addEventListener(
+  "pointermove",
+  (e) => {
+    if (e.pointerId !== activePointerId) return;
+    e.preventDefault();
+    handlePointerMove(e.clientX, e.clientY);
+  },
+  { passive: false }
+);
 
 const endPointer = (e: PointerEvent) => {
   if (e.pointerId !== activePointerId) return;
   activePointerId = null;
+  cachedCanvasRect = null;
   handlePointerUp();
 };
 canvas.addEventListener("pointerup", endPointer);
 canvas.addEventListener("pointercancel", (e) => {
   if (e.pointerId !== activePointerId) return;
   activePointerId = null;
+  cachedCanvasRect = null;
   activeBlock = null; // cancelled gesture: return piece to tray, never place it
 });
 

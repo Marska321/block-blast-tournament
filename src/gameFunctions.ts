@@ -1190,7 +1190,10 @@ export function drawGrid(
     const dprY = transform.d || 1;
     const canvasW = ctx.canvas.width;
     const canvasH = ctx.canvas.height;
-    const currentKey = `${isPaperTheme},${startX},${startY},${cellSize},${gridSize},${theme ? theme.name : "default"},${bgCell},${bgBorder},${dprX},${canvasW},${canvasH}`;
+    const isAllGlass = revealMode === "all-glass";
+    const hasRevealed = isAllGlass || (revealedTiles && revealedTiles.size > 0);
+    const revealedKey = revealedTiles ? Array.from(revealedTiles).sort().join(";") : "";
+    const currentKey = `${isPaperTheme},${startX},${startY},${cellSize},${gridSize},${theme ? theme.name : "default"},${bgCell},${bgBorder},${dprX},${canvasW},${canvasH},${revealMode},${revealedKey}`;
 
     if (!staticBoardCanvas) {
       staticBoardCanvas = document.createElement("canvas");
@@ -1284,67 +1287,56 @@ export function drawGrid(
             bCtx.stroke();
           }
         }
+
+        // Bake transparent windows directly onto static board cache once per board update
+        if (hasRevealed && !isPaperTheme && revealMode !== "classic") {
+          for (let gy = 0; gy < gridSize; gy++) {
+            for (let gx = 0; gx < gridSize; gx++) {
+              const key = `${gx},${gy}`;
+              if (isAllGlass || (revealedTiles && revealedTiles.has(key))) {
+                const px = startX + gx * cellSize;
+                const py = startY + gy * cellSize;
+                const pad = 1.5;
+                const slotSize = cellSize - pad * 2;
+                const slotRadius = Math.max(3, Math.floor(cellSize * 0.14));
+                const sx = px + pad;
+                const sy = py + pad;
+
+                // Punch transparent window through static board to underlying wallpaper
+                bCtx.save();
+                bCtx.globalCompositeOperation = "destination-out";
+                if (bCtx.roundRect) {
+                  bCtx.beginPath();
+                  bCtx.roundRect(sx, sy, slotSize, slotSize, slotRadius);
+                  bCtx.fill();
+                } else {
+                  bCtx.fillRect(sx, sy, slotSize, slotSize);
+                }
+                bCtx.restore();
+
+                // High-tech etched glass outline
+                bCtx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+                bCtx.lineWidth = 1.2;
+                if (bCtx.roundRect) {
+                  bCtx.beginPath();
+                  bCtx.roundRect(sx, sy, slotSize, slotSize, slotRadius);
+                  bCtx.stroke();
+                } else {
+                  bCtx.strokeRect(sx, sy, slotSize, slotSize);
+                }
+              }
+            }
+          }
+        }
       }
       staticBoardKey = currentKey;
     }
 
-    // Blit cached static board layer directly at 1:1 pixel resolution
+    // Blit cached static board layer directly at 1:1 pixel resolution in a single ultra-fast draw
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(staticBoardCanvas, 0, 0);
     ctx.restore();
-
-    // Option A & C: Unmask / Reveal wallpaper behind cleared board slots
-    const isAllGlass = revealMode === "all-glass";
-    const hasRevealed = isAllGlass || (revealedTiles && revealedTiles.size > 0);
-
-    if (hasRevealed && !isPaperTheme && revealMode !== "classic") {
-      for (let gy = 0; gy < gridSize; gy++) {
-        for (let gx = 0; gx < gridSize; gx++) {
-          const key = `${gx},${gy}`;
-          if (isAllGlass || (revealedTiles && revealedTiles.has(key))) {
-            const px = startX + gx * cellSize;
-            const py = startY + gy * cellSize;
-            const pad = 1.5;
-            const slotSize = cellSize - pad * 2;
-            const slotRadius = Math.max(3, Math.floor(cellSize * 0.14));
-            const sx = px + pad;
-            const sy = py + pad;
-
-            // 1. Cut through canvas to punch a transparent window to the underlying wallpaper
-            ctx.save();
-            ctx.globalCompositeOperation = "destination-out";
-            if (ctx.roundRect) {
-              ctx.beginPath();
-              ctx.roundRect(sx, sy, slotSize, slotSize, slotRadius);
-              ctx.fill();
-            } else {
-              ctx.fillRect(sx, sy, slotSize, slotSize);
-            }
-            ctx.restore();
-
-            // 2. High-tech etched glass outline with luminous soft glow
-            ctx.save();
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
-            ctx.lineWidth = 1.2;
-            if (ctx.roundRect) {
-              ctx.beginPath();
-              ctx.roundRect(sx, sy, slotSize, slotSize, slotRadius);
-              ctx.stroke();
-            } else {
-              ctx.strokeRect(sx, sy, slotSize, slotSize);
-            }
-
-            // 3. Subtle glass corner glint for crisp tactile finish
-            ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-            ctx.beginPath();
-            ctx.arc(sx + 3.5, sy + 3.5, 1.2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-          }
-        }
-      }
-    }
   } else {
     // Non-DOM fallback
     ctx.save();
@@ -1591,8 +1583,6 @@ export function drawGhostBlock(
       const beamAlpha = 0.22 + Math.sin(Date.now() / 140) * 0.1;
       ctx.fillStyle = color;
       ctx.globalAlpha = beamAlpha;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 18;
 
       for (const r of willClearRows) {
         ctx.fillRect(startX, startY + r * cellSize, gridDim, cellSize);
@@ -1606,9 +1596,6 @@ export function drawGhostBlock(
 
   // 2. Ghost placement rendering for the dragged piece itself
   ctx.save();
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 12;
-
   const pad = 1.5;
   const blockSize = cellSize - pad * 2;
   const radius = Math.max(3, Math.floor(cellSize * 0.16));
