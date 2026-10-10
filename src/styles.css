@@ -616,71 +616,85 @@ canvas {
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  text-align: left;
 }
 
-.phone-input-group {
+.auth-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.auth-input-label {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #cbd5e1;
   display: flex;
   align-items: center;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  padding: 0 12px;
-}
-
-.phone-prefix {
-  font-size: 1.1rem;
-  margin-right: 8px;
+  gap: 4px;
 }
 
 .auth-input {
   width: 100%;
-  padding: 12px 0;
-  background: transparent;
-  border: none;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
   color: #fff;
-  font-size: 1rem;
+  font-size: 0.9rem;
   outline: none;
+  transition: all 0.18s ease;
+  box-sizing: border-box;
 }
 
-.auth-divider {
-  display: flex;
-  align-items: center;
-  text-align: center;
-  color: #6a7494;
-  font-size: 0.75rem;
-  font-weight: 700;
-  margin: 10px 0;
+.auth-input:focus {
+  border-color: #00ba7c;
+  box-shadow: 0 0 12px rgba(0, 186, 124, 0.35);
+  background: rgba(0, 0, 0, 0.6);
 }
 
-.auth-divider::before,
-.auth-divider::after {
-  content: "";
-  flex: 1;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.auth-helper-text {
+  font-size: 0.68rem;
+  color: #64748b;
+  line-height: 1.35;
+  margin-top: 2px;
 }
 
-.auth-divider span {
-  padding: 0 10px;
+.auth-submit-btn {
+  background: linear-gradient(135deg, #00ba7c 0%, #059669 100%);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.92rem;
+  padding: 13px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 186, 124, 0.35);
+  margin-top: 6px;
+  transition: all 0.18s ease;
+  width: 100%;
 }
 
-.whatsapp-direct-btn {
-  background: rgba(37, 211, 102, 0.12);
-  border-color: rgba(37, 211, 102, 0.4);
-  color: #25D366;
-  font-weight: 700;
-  padding: 12px;
-  margin-bottom: 8px;
+.auth-submit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 186, 124, 0.45);
 }
 
 .modal-skip-btn {
   background: none;
   border: none;
-  color: #6a7494;
-  font-size: 0.82rem;
-  margin-top: 10px;
+  color: #64748b;
+  font-size: 0.75rem;
   cursor: pointer;
   text-decoration: underline;
+  margin-top: 8px;
+  padding: 4px;
+  transition: color 0.15s ease;
+}
+
+.modal-skip-btn:hover {
+  color: #94a3b8;
 }
 
 /* ============================================================

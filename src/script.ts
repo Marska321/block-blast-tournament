@@ -980,9 +980,11 @@ function checkBoardGameOver(): boolean {
 
           submitTournamentScore({
             playerId,
+            fullName: profile?.fullName || null,
             nickname,
             phone: profile?.phone,
             country: profile?.country,
+            isVerified: !!profile?.verified,
             mode: "classic",
             tournamentId: activeTourneyId,
             score,

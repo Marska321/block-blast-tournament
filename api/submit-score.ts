@@ -13,9 +13,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const {
     playerId = "guest",
+    fullName = null,
     nickname = "Anonymous",
     phone = null,
     country = "🇿🇦",
+    isVerified = false,
     mode = "classic",
     tournamentId = "weekly_partner_cup",
     score = 0,
@@ -58,13 +60,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-      // Upsert player record
+      // Upsert player record with legal name and verification
       await supabase.from("players").upsert(
         {
           id: playerId,
+          full_name: fullName,
           nickname,
           phone,
           country,
+          is_verified: isVerified,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" }

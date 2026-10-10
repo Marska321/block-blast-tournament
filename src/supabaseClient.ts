@@ -10,9 +10,11 @@ export const supabase: SupabaseClient | null =
 
 export interface SubmitScorePayload {
   playerId: string;
+  fullName?: string | null;
   nickname: string;
   phone?: string | null;
   country?: string;
+  isVerified?: boolean;
   mode: "classic" | "blitz" | "levels";
   tournamentId?: string;
   score: number;

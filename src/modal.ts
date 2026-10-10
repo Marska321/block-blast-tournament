@@ -122,35 +122,14 @@ export function createGameOverModal({
   });
 
   document.getElementById("claimSpotBtn")?.addEventListener("click", () => {
-    try {
-      const profile = authManager.getProfile();
+    authManager.show(() => {
+      // When registration completes, immediately refresh the modal to show the Verified Pro card!
       const score = parseInt(
         document.getElementById("modalScore")?.textContent?.replace(/,/g, "") || "0",
         10
       );
-      const conf = tournamentConfigManager.getConfig();
-      const playerName = profile.nickname || `Player-${profile.id.slice(-4)}`;
-      const message = encodeURIComponent(
-        `🏆 Block Blast Tournament Score Registration:\n` +
-        `• Player: ${playerName} (ID: ${profile.id})\n` +
-        `• Tournament: ${conf.sponsorName} ${conf.tournamentTitle}\n` +
-        `• Final Score: ${score.toLocaleString()} pts\n` +
-        `• Prize Pool: ${conf.totalPrizePool}\n\n` +
-        `Please register my official leaderboard ranking and prize claim!`
-      );
-      const waUrl = `https://wa.me/?text=${message}`;
-
-      // Mark player as verified with badge!
-      authManager.setWhatsAppVerified(true);
-
-      const win = window.open(waUrl, "_blank");
-      if (!win || win.closed || typeof win.closed === "undefined") {
-        window.location.href = waUrl;
-      }
-    } catch (e) {
-      console.warn("WhatsApp open fallback:", e);
-      window.location.href = "https://wa.me/";
-    }
+      showModal(score, "tournament");
+    });
   });
 
   document.getElementById("modalSupportLink")?.addEventListener("click", () => {

@@ -8,9 +8,11 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- 1. Players Table
 CREATE TABLE IF NOT EXISTS public.players (
   id TEXT PRIMARY KEY,                       -- Unique client ID (UUID or phone hash)
-  nickname TEXT NOT NULL,
-  phone TEXT,                                -- Optional verified WhatsApp number
+  full_name TEXT,                            -- Legal / real name for prize verification (private)
+  nickname TEXT NOT NULL,                    -- Public handle for leaderboards
+  phone TEXT,                                -- WhatsApp contact number for payouts
   country TEXT DEFAULT '🇿🇦',
+  is_verified BOOLEAN DEFAULT FALSE,         -- Verified Competitor Badge status
   stars_total INT DEFAULT 0,
   best_tourney_score INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),

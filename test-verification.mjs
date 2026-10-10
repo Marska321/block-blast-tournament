@@ -417,7 +417,7 @@ import('./src/levels.js').catch(async () => {
 
   console.log('✔ Tournament Rules & Terms and Conditions verified');
 
-  console.log('21. Testing No Space For Bricks Notification & Direct WhatsApp Registration...');
+  console.log('21. Testing No Space For Bricks Notification & Direct Support Link...');
   const scriptContent = fs.readFileSync('src/script.ts', 'utf8');
   assert(scriptContent.includes('showGameOverToast("🚫 NO SPACE FOR BRICKS — OUT OF MOVES!")'), 'Must trigger high-visibility toast banner on deadlock');
   assert(scriptContent.includes('gameOverToastBanner'), 'Must create gameOverToastBanner element');
@@ -425,13 +425,13 @@ import('./src/levels.js').catch(async () => {
   const modalContent = fs.readFileSync('src/modal.ts', 'utf8');
   assert(modalContent.includes('modalReasonPill'), 'Game Over modal must have modalReasonPill');
   assert(modalContent.includes('No space left for remaining bricks'), 'Game Over modal must clearly explain why game ended');
-  assert(modalContent.includes('wa.me'), 'claimSpotBtn must directly trigger WhatsApp registration');
-  assert(modalContent.includes('window.location.href = waUrl'), 'Must have fallback redirect to WhatsApp for mobile popup blockers');
+  assert(modalContent.includes('modalSupportLink'), 'Game Over modal must provide modalSupportLink for WhatsApp support');
+  assert(modalContent.includes('wa.me'), 'Support link must use wa.me');
 
   const authContent = fs.readFileSync('src/auth.ts', 'utf8');
   assert(authContent.includes('if (!this.modalEl)'), 'authManager.show must self-heal if modalEl is null');
 
-  console.log('✔ No Space For Bricks Notification & Direct WhatsApp Registration verified');
+  console.log('✔ No Space For Bricks Notification & Direct Support Link verified');
 
   console.log('22. Testing Social Verified Badge System & Streamlined Registration...');
   const verifiedBadgeSrc = fs.readFileSync('src/verifiedBadge.ts', 'utf8');
@@ -442,7 +442,6 @@ import('./src/levels.js').catch(async () => {
   assert(authContent.includes('setWhatsAppVerified'), 'auth.ts must have setWhatsAppVerified');
 
   assert(modalContent.includes('modalVerifiedStatusCard'), 'modal.ts must have modalVerifiedStatusCard');
-  assert(modalContent.includes('authManager.setWhatsAppVerified(true)'), 'modal.ts must mark player verified when claiming via WhatsApp');
 
   const lbSrc = fs.readFileSync('src/leaderboard.ts', 'utf8');
   assert(lbSrc.includes('getVerifiedBadgeHtml'), 'leaderboard.ts must render verified badges');
@@ -451,7 +450,22 @@ import('./src/levels.js').catch(async () => {
 
   console.log('✔ Social Verified Badge System & Streamlined Registration verified');
 
-  console.log('\nAll 22 verification tests passed successfully!');
+  console.log('23. Testing Model 2 Direct In-Game Registration (Full Name, Nickname, WhatsApp Phone)...');
+  assert(authContent.includes('authFullName'), 'auth.ts must include Full Name input');
+  assert(authContent.includes('authNickname'), 'auth.ts must include Nickname input');
+  assert(authContent.includes('authPhone'), 'auth.ts must include WhatsApp phone input');
+  assert(authContent.includes('saveRegistration'), 'auth.ts must implement saveRegistration');
+
+  const schemaContent = fs.readFileSync('supabase/schema.sql', 'utf8');
+  assert(schemaContent.includes('full_name TEXT'), 'Schema must define full_name in players table');
+
+  const submitContent = fs.readFileSync('api/submit-score.ts', 'utf8');
+  assert(submitContent.includes('fullName = null'), 'api/submit-score.ts must accept fullName');
+  assert(submitContent.includes('full_name: fullName'), 'api/submit-score.ts must upsert full_name to players');
+
+  console.log('✔ Model 2 Direct In-Game Registration verified');
+
+  console.log('\nAll 23 verification tests passed successfully!');
 });
 
 
