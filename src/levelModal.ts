@@ -73,7 +73,7 @@ export function showLevelCompleteModal({
           ? `<button class="modal-button next-level-btn" id="nextLevelBtn">
               ▶ Next Level
             </button>`
-          : `<div class="all-cleared-banner">🎉 All 20 Levels Mastered!</div>`
+          : `<div class="all-cleared-banner">🎉 All 60 Adventure Levels Mastered!</div>`
       }
 
       <div class="modal-button-row">

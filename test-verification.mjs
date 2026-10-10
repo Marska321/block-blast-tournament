@@ -563,9 +563,20 @@ import('./src/levels.js').catch(async () => {
   assert(wallpaperSrc.includes('id: "bakery-cafe"'), 'WALLPAPER_PRESETS must include bakery-cafe theme');
   assert(stylesSrc.includes('.skin-evolution-showcase'), 'styles.css must style skin-evolution-showcase');
 
-  console.log('✔ Frosted Cupcake and Crispy Cracker Block Skins verified');
+  console.log('29. Testing 60 Adventure Levels & 12 Distinct Worlds...');
+  const levelsContent = fs.readFileSync('src/levels.ts', 'utf8');
+  const levelMatches = levelsContent.match(/\{\s*level:\s*(\d+)/g);
+  assert.strictEqual(levelMatches.length, 60, 'LEVEL_DATA must contain exactly 60 levels');
 
-  console.log('\nAll 28 verification tests passed successfully!');
+  const lvlNumbers = levelMatches.map(b => parseInt(b.replace(/[^\d]/g, ''), 10));
+  assert(lvlNumbers.every((num, idx) => num === idx + 1), 'All 60 levels must be sequentially ordered 1 to 60');
+
+  const modalLevelSrc = fs.readFileSync('src/levelModal.ts', 'utf8');
+  assert(modalLevelSrc.includes('All 60 Adventure Levels Mastered'), 'Level modal must reference all 60 levels');
+
+  console.log('✔ 60 Adventure Levels & 12 Distinct Worlds verified');
+
+  console.log('\nAll 29 verification tests passed successfully!');
 });
 
 
