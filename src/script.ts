@@ -895,7 +895,7 @@ function showGameOverToast(message: string) {
   toastEl.classList.add("show");
   setTimeout(() => {
     toastEl?.classList.remove("show");
-  }, 2200);
+  }, 3200);
 }
 
 function checkBoardGameOver(): boolean {
@@ -969,7 +969,7 @@ function checkBoardGameOver(): boolean {
               onClose: () => {},
             }),
         });
-      }, 300);
+      }, 1400);
     } else {
       // Classic or Official Tournament Mode
       const isTournament = currentMode.id === GameModeId.TOURNAMENT;
@@ -1010,7 +1010,7 @@ function checkBoardGameOver(): boolean {
         }
       }
 
-      // Display Game Over Modal with performance metrics
+      // Display Game Over Modal with performance metrics after toast has been clearly absorbed
       setTimeout(() => {
         try {
           showModal(score, currentMode.name, computePerformanceStats());
@@ -1018,7 +1018,7 @@ function checkBoardGameOver(): boolean {
           console.error("showModal execution fallback:", modalErr);
           showModal(score, currentMode.name);
         }
-      }, 300);
+      }, 1400);
     }
 
     // Verify any pending referral if newcomer completed a game
