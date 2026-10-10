@@ -1,6 +1,5 @@
 import { tournamentConfigManager } from "./tournamentConfig";
 import { showTourneyRulesModal } from "./tourneyRulesModal";
-import { authManager } from "./auth";
 
 export interface LandingModalOptions {
   onStartTournament: () => void;
