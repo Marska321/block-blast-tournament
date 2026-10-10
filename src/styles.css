@@ -556,15 +556,25 @@ canvas {
   transition: all 0.15s ease;
 }
 
-/* WhatsApp Styling */
-.whatsapp-btn {
-  background: linear-gradient(135deg, #25D366, #128C7E);
+/* WhatsApp & Verified Register Styling */
+.whatsapp-btn,
+.verify-register-btn {
+  background: linear-gradient(135deg, #00ba7c 0%, #059669 100%);
   color: #ffffff;
-  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 186, 124, 0.4);
   margin-bottom: 10px;
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.whatsapp-btn:active {
+.verify-register-btn:hover {
+  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+  transform: translateY(-1px);
+}
+
+.whatsapp-btn:active,
+.verify-register-btn:active {
   transform: scale(0.98);
 }
 
@@ -2778,6 +2788,57 @@ body.theme-paper .tourney-bar-sub {
   color: #94a3b8;
   margin: 0;
   line-height: 1.35;
+}
+
+/* Instant Registration Success Toast */
+.auth-success-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px) scale(0.95);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.98), rgba(5, 150, 105, 0.98));
+  color: #ffffff;
+  border: 2px solid #a7f3d0;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 20px rgba(16, 185, 129, 0.6);
+  padding: 12px 20px;
+  border-radius: 16px;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-align: center;
+  max-width: 90vw;
+}
+
+.auth-success-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.auth-success-toast .toast-badge {
+  display: inline-block;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-bottom: 4px;
+  color: #a7f3d0;
+}
+
+.auth-success-toast .toast-title {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.auth-success-toast .toast-sub {
+  display: block;
+  font-size: 0.76rem;
+  color: #d1fae5;
+  margin-top: 2px;
 }
 
 .verified-support-link {

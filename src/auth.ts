@@ -165,15 +165,37 @@ class AuthManager {
       const nickname = nickInput?.value?.trim() || "Player";
       const phone = phoneInput?.value?.trim() || "";
 
-      if (!fullName || !phone) return;
-
       this.saveRegistration(fullName, nickname, phone);
       this.hide();
+
+      // Show high-visibility feedback toast confirming verified status
+      this.showRegistrationSuccessToast(nickname);
 
       if (this.currentSuccessCb) {
         this.currentSuccessCb(phone, 1);
       }
     });
+  }
+
+  public showRegistrationSuccessToast(nickname: string) {
+    let toast = document.getElementById("authSuccessToast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "authSuccessToast";
+      toast.className = "auth-success-toast";
+      document.body.appendChild(toast);
+    }
+    toast.innerHTML = `
+      <div class="toast-content">
+        <span class="toast-badge">☑️ VERIFIED PRO</span>
+        <span class="toast-title">Profile Registered Successfully!</span>
+        <span class="toast-sub">Welcome <strong>${nickname}</strong> — your scores and prizes are now linked!</span>
+      </div>
+    `;
+    toast.classList.add("show");
+    setTimeout(() => {
+      toast?.classList.remove("show");
+    }, 4000);
   }
 
   public show(onSuccess?: (whatsappPhone: string, rank: number) => void) {

@@ -82,8 +82,8 @@ export function createGameOverModal({
       </div>
 
       <!-- Action Buttons -->
-      <button class="modal-button whatsapp-btn" id="claimSpotBtn">
-        💬 Register on WhatsApp to Verify & Claim Prizes
+      <button class="modal-button verify-register-btn" id="claimSpotBtn">
+        🛡️ Register Profile to Claim Official Prizes & Badges
       </button>
 
       <button class="modal-button share-invite-btn" id="inviteFriendsBtn" style="display: none;">
