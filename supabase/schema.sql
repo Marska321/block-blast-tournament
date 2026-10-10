@@ -53,6 +53,30 @@ CREATE TABLE IF NOT EXISTS public.tournament_scores (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ensure tournament_id column exists if table was previously created without it
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'tournament_scores' 
+      AND column_name = 'tournament_id'
+  ) THEN
+    ALTER TABLE public.tournament_scores 
+      ADD COLUMN tournament_id TEXT REFERENCES public.tournaments(id) ON DELETE SET NULL DEFAULT 'weekly_partner_cup';
+  END IF;
+
+  -- Ensure full_name column exists on players if previously created without it
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'players' 
+      AND column_name = 'full_name'
+  ) THEN
+    ALTER TABLE public.players ADD COLUMN full_name TEXT;
+  END IF;
+END $$;
+
 -- 3. Player Level Progress Table (Levels 1-60)
 CREATE TABLE IF NOT EXISTS public.player_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
