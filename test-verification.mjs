@@ -510,7 +510,28 @@ import('./src/levels.js').catch(async () => {
 
   console.log('✔ Milestone-Based Unlocks & Dynamic Block Skin Evolution verified');
 
-  console.log('\nAll 25 verification tests passed successfully!');
+  console.log('26. Testing First-Time User Landing Page & Welcome Hub...');
+  const landingSrc = fs.readFileSync('src/landingModal.ts', 'utf8');
+  assert(landingSrc.includes('isFirstTimeUser'), 'landingModal.ts must export isFirstTimeUser');
+  assert(landingSrc.includes('markLandingSeen'), 'landingModal.ts must export markLandingSeen');
+  assert(landingSrc.includes('showLandingModal'), 'landingModal.ts must export showLandingModal');
+  assert(landingSrc.includes('BLOCK BLAST'), 'landingModal.ts must contain hero title');
+  assert(landingSrc.includes('3 Daily Free Tickets'), 'landingModal.ts must highlight 3 daily free tickets');
+  assert(landingSrc.includes('COMING SOON'), 'landingModal.ts must display upcoming partner cups with COMING SOON');
+
+  const indexSrc = fs.readFileSync('index.html', 'utf8');
+  assert(indexSrc.includes('id="landing-info-btn"'), 'index.html must have landing info button in HUD');
+
+  assert(scriptRef.includes('isFirstTimeUser()'), 'script.ts must check isFirstTimeUser on load');
+  assert(scriptRef.includes('landingInfoBtn?.addEventListener'), 'script.ts must bind landingInfoBtn');
+
+  const landingStyles = fs.readFileSync('src/styles.css', 'utf8');
+  assert(landingStyles.includes('.landing-modal'), 'styles.css must style landing-modal');
+  assert(landingStyles.includes('.landing-hero-badge'), 'styles.css must style landing-hero-badge');
+
+  console.log('✔ First-Time User Landing Page & Welcome Hub verified');
+
+  console.log('\nAll 26 verification tests passed successfully!');
 });
 
 

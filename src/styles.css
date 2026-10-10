@@ -2741,6 +2741,222 @@ body.theme-paper .tourney-bar-sub {
   color: #94a3b8;
 }
 
+/* ============================================================
+   LANDING / WELCOME HUB MODAL
+   ============================================================ */
+.landing-modal {
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  background: linear-gradient(175deg, #161b2e 0%, #0d1120 100%);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(245, 158, 11, 0.15);
+  padding: 24px 20px;
+}
+
+.landing-hero-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  margin-bottom: 10px;
+}
+
+.landing-hero-title {
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1.15;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+}
+
+.gold-gradient-text {
+  background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.landing-hero-sub {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
+
+/* Active Cup Banner */
+.landing-active-cup-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1.5px solid rgba(251, 191, 36, 0.4);
+  border-radius: 14px;
+  padding: 12px 14px;
+  text-align: left;
+  margin-bottom: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.landing-cup-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.landing-cup-tag {
+  font-size: 0.66rem;
+  font-weight: 900;
+  color: #fbbf24;
+  letter-spacing: 0.05em;
+}
+
+.landing-cup-prize {
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.landing-cup-name {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.landing-cup-desc {
+  font-size: 0.72rem;
+  color: #cbd5e1;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+/* 3-Step Feature Cards Grid */
+.landing-features-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.landing-feature-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.landing-feat-icon {
+  font-size: 1.35rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.landing-feat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.landing-feat-content strong {
+  font-size: 0.82rem;
+  color: #f1f5f9;
+}
+
+.landing-feat-content span {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+/* Upcoming Partner Cups Container */
+.landing-upcoming-box {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+.landing-upcoming-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #94a3b8;
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.landing-upcoming-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.landing-upcoming-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.landing-upcoming-chip .chip-icon {
+  font-size: 1.1rem;
+}
+
+.landing-upcoming-chip .chip-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.landing-upcoming-chip .chip-text strong {
+  font-size: 0.75rem;
+  color: #e2e8f0;
+}
+
+.landing-upcoming-chip .chip-text span {
+  font-size: 0.64rem;
+  color: #94a3b8;
+}
+
+/* Primary Action Buttons */
+.landing-actions-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.landing-footer-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+
 
 
 

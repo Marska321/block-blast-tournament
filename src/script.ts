@@ -58,6 +58,7 @@ import {
 import { wallpaperManager, updateLifetimeBestScore } from "./wallpaper";
 import { showWallpaperModal } from "./wallpaperModal";
 import { getPhotoRevealMode, unlockPhotoReveal } from "./photoReveal";
+import { showLandingModal, isFirstTimeUser } from "./landingModal";
 import { referralManager } from "./referral";
 import {
   tournamentConfigManager,
@@ -75,6 +76,7 @@ const bestDisplayEl = document.getElementById("hud-best-value");
 const muteBtn = document.getElementById("mute-btn");
 const themeBtn = document.getElementById("theme-btn");
 const wallpaperBtn = document.getElementById("wallpaper-btn");
+const landingInfoBtn = document.getElementById("landing-info-btn");
 const leaderboardBtn = document.getElementById("leaderboard-btn");
 const chancesBadgeEl = document.getElementById("hud-chances-badge");
 const modeLevelsBtn = document.getElementById("mode-levels-btn");
@@ -1560,6 +1562,19 @@ wallpaperBtn?.addEventListener("click", () => {
   showWallpaperModal();
 });
 
+// Landing / Tournament Welcome Hub
+landingInfoBtn?.addEventListener("click", () => {
+  showLandingModal({
+    onStartTournament: () => {
+      promptTournamentEntry();
+    },
+    onStartClassic: () => {
+      initClassicGame();
+    },
+    onClose: () => {},
+  });
+});
+
 wallpaperManager.onChange(() => {
   if (currentMode.id === GameModeId.TOURNAMENT) {
     wallpaperManager.apply(true);
@@ -1755,6 +1770,21 @@ if (!tryResumeSavedGameSession()) {
   initLevelGame(startLevel);
 }
 gameLoop();
+
+// First-Time User Welcome Experience: Auto-trigger Landing Hub
+if (isFirstTimeUser()) {
+  setTimeout(() => {
+    showLandingModal({
+      onStartTournament: () => {
+        promptTournamentEntry();
+      },
+      onStartClassic: () => {
+        initClassicGame();
+      },
+      onClose: () => {},
+    });
+  }, 400);
+}
 
 // Poll for completed challenge referrals on game load
 referralManager.pollReferralRewards().then((unclaimed) => {
