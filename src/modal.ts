@@ -298,7 +298,7 @@ export function showModal(
       // Only show registration button if player is NOT verified yet!
       claimBtn.style.display = (!isClassic && !isVerified) ? "flex" : "none";
       claimBtn.removeAttribute("disabled");
-      claimBtn.textContent = "💬 Register on WhatsApp to Verify & Claim";
+      claimBtn.textContent = "🛡️ Register Profile to Claim Official Prizes & Badges";
     }
 
     const lbContainer = document.getElementById("modalLeaderboardContainer");
