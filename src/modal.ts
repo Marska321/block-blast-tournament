@@ -239,7 +239,7 @@ export function showModal(
         teaserEl.innerHTML = `🥉 <strong>RANK #3!</strong> Eligible for ${top3Reward} 3rd Place Prize!`;
         teaserEl.className = "rank-teaser top5-glow";
       } else if (rank <= 10) {
-        teaserEl.innerHTML = `🔥 Ranked <strong>#${rank}</strong> — Inside the ${conf.totalPrizePool} Cash Payout Pool!`;
+        teaserEl.innerHTML = `🔥 Ranked <strong>#${rank}</strong> — Inside the ${conf.totalPrizePool} Prize Pool!`;
         teaserEl.className = "rank-teaser top5-glow";
       } else {
         teaserEl.innerHTML = `Official Entry Ranked: <strong>#${rank}</strong> this week`;

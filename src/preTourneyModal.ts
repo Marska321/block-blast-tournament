@@ -39,6 +39,17 @@ export function createPreTourneyModal() {
         </div>
       </div>
 
+      <!-- Upcoming Partner Prize Cups Showcase (Coming Soon Anticipation) -->
+      <div class="upcoming-partners-section" id="upcomingPartnersSection">
+        <div class="upcoming-partners-header">
+          <span class="upcoming-title">🚀 UPCOMING PARTNER PRIZE CUPS</span>
+          <span class="upcoming-pulse-tag">COMING SOON</span>
+        </div>
+        <div class="upcoming-partner-grid" id="upcomingPartnersGrid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
       <!-- Clear & Simple Ticket Status Card (Points 2 & 3: no confusion) -->
       <div id="preTourneyTicketBox" class="pretourney-ticket-box">
         <div class="ticket-status-row">
@@ -160,10 +171,34 @@ export function showPreTourneyModal(options: PreTourneyModalOptions) {
         .join("");
     }
 
+    // Render upcoming partners dynamically (Coming Soon anticipation)
+    const upcomingGrid = document.getElementById("upcomingPartnersGrid");
+    if (upcomingGrid) {
+      const upcomingList = tournamentConfigManager.getUpcomingPartners();
+      upcomingGrid.innerHTML = upcomingList
+        .map(
+          (partner) => `
+          <div class="upcoming-partner-card">
+            <div class="upcoming-card-top">
+              <span class="upcoming-icon">${partner.icon}</span>
+              <span class="coming-soon-pill">${partner.statusBadge}</span>
+            </div>
+            <strong class="upcoming-partner-name">${partner.name}</strong>
+            <span class="upcoming-partner-prizes">${partner.expectedPrizes}</span>
+          </div>
+        `
+        )
+        .join("");
+    }
+
     // Clear, non-confusing tickets display
     if (options.chancesRemaining > 0) {
       if (badgeEl) {
-        badgeEl.textContent = config.frequency === "daily" ? "⚡ OFFICIAL DAILY DASH" : "🏆 OFFICIAL CASH TOURNAMENT";
+        if (config.id === "pre_season_cup") {
+          badgeEl.textContent = "🔥 PRE-SEASON LAUNCH • PRIZES COMING SOON";
+        } else {
+          badgeEl.textContent = config.frequency === "daily" ? "⚡ OFFICIAL DAILY DASH" : "🏆 OFFICIAL CASH TOURNAMENT";
+        }
         badgeEl.className = "modal-badge pretourney-badge";
       }
       if (ticketCountEl) {

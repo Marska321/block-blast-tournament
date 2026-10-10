@@ -465,7 +465,28 @@ import('./src/levels.js').catch(async () => {
 
   console.log('✔ Model 2 Direct In-Game Registration verified');
 
-  console.log('\nAll 23 verification tests passed successfully!');
+  console.log('24. Testing Pre-Season Voucher Cup & Upcoming Partners ("COMING SOON")...');
+  const tourneyCfgSrc = fs.readFileSync('src/tournamentConfig.ts', 'utf8');
+  assert(tourneyCfgSrc.includes('pre_season_cup'), 'tournamentConfig.ts must define pre_season_cup');
+  assert(tourneyCfgSrc.includes('Inaugural Voucher Cup'), 'pre_season_cup must be titled Inaugural Voucher Cup');
+  assert(tourneyCfgSrc.includes('UPCOMING_PARTNERS'), 'tournamentConfig.ts must export UPCOMING_PARTNERS');
+  assert(tourneyCfgSrc.includes('COMING SOON'), 'UPCOMING_PARTNERS must explicitly have statusBadge "COMING SOON"');
+  assert(!tourneyCfgSrc.includes('in partner talks'), 'Must strictly use "COMING SOON" instead of "in partner talks"');
+  assert(tourneyCfgSrc.includes('Airtime / Electricity'), 'Pre-season cup prize tiers must seed Airtime and Electricity');
+
+  const preTourneyModalSrc = fs.readFileSync('src/preTourneyModal.ts', 'utf8');
+  assert(preTourneyModalSrc.includes('upcomingPartnersSection'), 'preTourneyModal.ts must contain upcomingPartnersSection');
+  assert(preTourneyModalSrc.includes('upcomingPartnersGrid'), 'preTourneyModal.ts must contain upcomingPartnersGrid');
+  assert(preTourneyModalSrc.includes('getUpcomingPartners'), 'preTourneyModal.ts must call getUpcomingPartners()');
+  assert(preTourneyModalSrc.includes('PRE-SEASON LAUNCH • PRIZES COMING SOON'), 'preTourneyModal.ts must have Pre-Season Launch badge');
+
+  const stylesSrc = fs.readFileSync('src/styles.css', 'utf8');
+  assert(stylesSrc.includes('.upcoming-partners-section'), 'styles.css must style upcoming-partners-section');
+  assert(stylesSrc.includes('.coming-soon-pill'), 'styles.css must style coming-soon-pill');
+
+  console.log('✔ Pre-Season Voucher Cup & Upcoming Partners ("COMING SOON") verified');
+
+  console.log('\nAll 24 verification tests passed successfully!');
 });
 
 

@@ -24,11 +24,73 @@ export interface TournamentSponsorConfig {
   disclaimer?: string;         // Optional subtext e.g. "Top 10 Leaderboard Cash Payouts"
 }
 
+export interface UpcomingPartnerItem {
+  id: string;
+  name: string;
+  category: string;
+  icon: string;
+  statusBadge: string;
+  expectedPrizes: string;
+}
+
+export const UPCOMING_PARTNERS: UpcomingPartnerItem[] = [
+  {
+    id: "telco_partner",
+    name: "Telco Mobile Cup",
+    category: "Mobile Airtime & Data",
+    icon: "📱",
+    statusBadge: "COMING SOON",
+    expectedPrizes: "Airtime & Data Bundles",
+  },
+  {
+    id: "electricity_partner",
+    name: "Prepaid Energy Cup",
+    category: "Utilities & Electricity",
+    icon: "⚡",
+    statusBadge: "COMING SOON",
+    expectedPrizes: "Prepaid Electricity Vouchers",
+  },
+  {
+    id: "retail_partner",
+    name: "Retail Grocery Dash",
+    category: "Supermarket & Shopping",
+    icon: "🛒",
+    statusBadge: "COMING SOON",
+    expectedPrizes: "Shopping & Grocery Vouchers",
+  },
+  {
+    id: "fast_food_partner",
+    name: "Dining & Fast Food Cup",
+    category: "Food & Restaurants",
+    icon: "🍔",
+    statusBadge: "COMING SOON",
+    expectedPrizes: "Meal & Restaurant Vouchers",
+  },
+];
+
 export const DEFAULT_TOURNAMENTS_REGISTRY: Record<string, TournamentSponsorConfig> = {
+  pre_season_cup: {
+    id: "pre_season_cup",
+    sponsorName: "Pre-Season",
+    tournamentTitle: "Inaugural Voucher Cup",
+    sponsorTagline: "Airtime & Electricity Vouchers",
+    totalPrizePool: "R250 Vouchers",
+    currencySymbol: "R",
+    frequency: "weekly",
+    endsAtDescription: "Pre-Season Launch Event",
+    prizeTiers: [
+      { rank: "1ST", reward: "R100 Airtime / Electricity", badgeClass: "gold-tier" },
+      { rank: "2ND", reward: "R50 Airtime / Electricity", badgeClass: "silver-tier" },
+      { rank: "3RD", reward: "R25 Airtime Voucher", badgeClass: "bronze-tier" },
+      { rank: "TOP 10", reward: "Verified Pro Badge ☑️", badgeClass: "top10-tier" },
+    ],
+    sponsorWallpaperUrl: null,
+    disclaimer: "Compete for seeded airtime & electricity vouchers while incoming partner prize pools prepare to launch!",
+  },
   weekly_partner_cup: {
     id: "weekly_partner_cup",
-    sponsorName: "Official Partner",
-    tournamentTitle: "Weekly Prize Cup",
+    sponsorName: "Partner Cup",
+    tournamentTitle: "Weekly Cash Cup",
     sponsorTagline: "Official Cash Prize Sponsor",
     totalPrizePool: "R500",
     currencySymbol: "R",
@@ -72,7 +134,7 @@ class TournamentConfigManager {
 
   constructor() {
     this.registry = { ...DEFAULT_TOURNAMENTS_REGISTRY };
-    this.activeId = "weekly_partner_cup";
+    this.activeId = "pre_season_cup";
 
     // 1. Check URL parameters first for instant partner campaign routing
     this.detectFromUrlParams();
@@ -151,6 +213,10 @@ class TournamentConfigManager {
   public getTournamentById(id: string): TournamentSponsorConfig | null {
     const t = this.registry[id];
     return t ? { ...t, prizeTiers: [...t.prizeTiers] } : null;
+  }
+
+  public getUpcomingPartners(): UpcomingPartnerItem[] {
+    return [...UPCOMING_PARTNERS];
   }
 
   public setActiveTournament(id: string): boolean {

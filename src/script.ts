@@ -491,7 +491,9 @@ function updateHUDChances() {
     tournamentBannerEl.style.display = "flex";
     tournamentBannerEl.className = "tournament-live-bar official";
     if (tourneyBannerTitleEl) tourneyBannerTitleEl.textContent = `🏆 ${conf.sponsorName.toUpperCase()} PRIZE RUN`;
-    if (tourneyBannerSubEl) tourneyBannerSubEl.textContent = `${conf.totalPrizePool} Prize Pool • Top 10 Payouts`;
+    if (tourneyBannerSubEl) {
+      tourneyBannerSubEl.textContent = `${conf.totalPrizePool} Pool • ${conf.disclaimer || "Top 10 Payouts"}`;
+    }
   }
 
   if (hudStakesTagEl) {
