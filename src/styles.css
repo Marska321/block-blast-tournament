@@ -121,11 +121,25 @@ html, body {
   margin-top: 1px;
 }
 
+.hud-left-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+
 .lb-gold-btn {
   background: rgba(255, 214, 0, 0.18) !important;
   border-color: rgba(255, 214, 0, 0.4) !important;
   color: #ffd600 !important;
   font-size: 1.1rem !important;
+}
+
+.lb-info-btn {
+  background: rgba(56, 189, 248, 0.16) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  color: #38bdf8 !important;
+  font-size: 1.05rem !important;
 }
 
 .hud-controls {
