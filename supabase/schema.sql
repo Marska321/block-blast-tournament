@@ -134,6 +134,17 @@ CREATE POLICY "Public Upsert Referrals" ON public.referrals FOR ALL USING (true)
 INSERT INTO public.tournaments (id, sponsor_name, title, tagline, prize_pool, currency_symbol, frequency, is_active, prize_tiers)
 VALUES
   (
+    'pre_season_cup',
+    'Pre-Season',
+    'Inaugural Voucher Cup',
+    'Airtime & Electricity Vouchers',
+    'R250 Vouchers',
+    'R',
+    'weekly',
+    true,
+    '[{"rank":"1ST","reward":"R100 Airtime / Electricity","badgeClass":"gold-tier"},{"rank":"2ND","reward":"R50 Airtime / Electricity","badgeClass":"silver-tier"},{"rank":"3RD","reward":"R25 Airtime Voucher","badgeClass":"bronze-tier"},{"rank":"TOP 10","reward":"Verified Pro Badge ☑️","badgeClass":"top10-tier"}]'::jsonb
+  ),
+  (
     'weekly_partner_cup',
     'Official Partner',
     'Weekly Prize Cup',

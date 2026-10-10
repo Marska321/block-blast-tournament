@@ -74,6 +74,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         { onConflict: "id" }
       );
 
+      // Ensure tournament exists so foreign key constraint never fails
+      await supabase.from("tournaments").upsert(
+        {
+          id: tournamentId,
+          sponsor_name: tournamentId === "pre_season_cup" ? "Pre-Season" : "Official Partner",
+          title: tournamentId === "pre_season_cup" ? "Inaugural Voucher Cup" : "Weekly Prize Cup",
+          prize_pool: tournamentId === "pre_season_cup" ? "R250 Vouchers" : "R500",
+          currency_symbol: "R",
+          is_active: true,
+        },
+        { onConflict: "id" }
+      );
+
       // Insert score
       const { data, error } = await supabase.from("tournament_scores").insert({
         tournament_id: tournamentId,
