@@ -11,6 +11,8 @@ export interface PerformanceStats {
   maxCombo: number;
 }
 
+let savedRestartCb: (() => void) | null = null;
+let savedClassicCb: (() => void) | null = null;
 let modalEl: HTMLElement | null = null;
 
 export function createGameOverModal({
@@ -20,6 +22,8 @@ export function createGameOverModal({
   onRestart: () => void;
   onGoToClassic: () => void;
 }) {
+  savedRestartCb = onRestart;
+  savedClassicCb = onGoToClassic;
   if (modalEl) return;
 
   modalEl = document.createElement("div");
@@ -125,116 +129,134 @@ export function showModal(
   modeName: string = "Classic",
   perf?: PerformanceStats
 ) {
+  if (!modalEl) {
+    createGameOverModal({
+      onRestart: savedRestartCb || (() => window.location.reload()),
+      onGoToClassic: savedClassicCb || (() => window.location.reload()),
+    });
+  }
+
   if (!modalEl) return;
 
-  const conf = tournamentConfigManager.getConfig();
-  const badgeEl = document.getElementById("modalBadge");
-  const isClassic = modeName.toLowerCase() === "classic";
-
-  if (badgeEl) {
-    badgeEl.textContent = isClassic
-      ? `CLASSIC (CASUAL)`
-      : `${conf.sponsorName.toUpperCase()} PRIZE RUN`;
-    badgeEl.className = "modal-badge";
-  }
-
-  const scoreEl = document.getElementById("modalScore");
-  if (scoreEl) scoreEl.textContent = score.toLocaleString();
-
-  // Performance Grading Card
-  const perfCard = document.getElementById("modalPerfCard");
-  if (perfCard) {
-    if (perf) {
-      perfCard.style.display = "flex";
-      const effEl = document.getElementById("modalEfficiencyGrade");
-      const stratEl = document.getElementById("modalStrategyGrade");
-      const linesEl = document.getElementById("modalLinesCleared");
-      const comboEl = document.getElementById("modalMaxCombo");
-
-      if (effEl) {
-        effEl.textContent = perf.efficiencyGrade;
-        effEl.className = `perf-chip-val grade-${perf.efficiencyGrade.replace("+", "plus").toLowerCase()}`;
-      }
-      if (stratEl) {
-        stratEl.textContent = perf.strategicGrade;
-      }
-      if (linesEl) {
-        linesEl.textContent = `${perf.totalLines}`;
-      }
-      if (comboEl) {
-        comboEl.textContent = `${perf.maxCombo}x`;
-      }
-    } else {
-      perfCard.style.display = "none";
+  // Clear any existing active modals so Game Over is guaranteed visible
+  document.querySelectorAll(".modal-overlay.active").forEach((el) => {
+    if (el !== modalEl) {
+      el.classList.remove("active");
     }
-  }
+  });
 
-  const rank = estimateRank(score);
-  const teaserEl = document.getElementById("modalRankTeaser");
-  const top1Reward = conf.prizeTiers[0]?.reward || `${conf.currencySymbol}250`;
-  const top2Reward = conf.prizeTiers[1]?.reward || `${conf.currencySymbol}150`;
-  const top3Reward = conf.prizeTiers[2]?.reward || `${conf.currencySymbol}100`;
+  try {
+    const conf = tournamentConfigManager.getConfig();
+    const badgeEl = document.getElementById("modalBadge");
+    const isClassic = modeName.toLowerCase() === "classic";
 
-  if (teaserEl) {
-    if (isClassic) {
-      teaserEl.innerHTML = `🎯 Classic Casual Score: <strong>${score.toLocaleString()}</strong>`;
-      teaserEl.className = "rank-teaser";
-    } else if (rank === 1) {
-      teaserEl.innerHTML = `🌟 <strong>NEW #1 LEADER!</strong> Eligible for ${top1Reward} Grand Prize!`;
-      teaserEl.className = "rank-teaser gold-glow";
-    } else if (rank === 2) {
-      teaserEl.innerHTML = `🥈 <strong>RANK #2!</strong> Eligible for ${top2Reward} Runner-Up Prize!`;
-      teaserEl.className = "rank-teaser gold-glow";
-    } else if (rank === 3) {
-      teaserEl.innerHTML = `🥉 <strong>RANK #3!</strong> Eligible for ${top3Reward} 3rd Place Prize!`;
-      teaserEl.className = "rank-teaser top5-glow";
-    } else if (rank <= 10) {
-      teaserEl.innerHTML = `🔥 Ranked <strong>#${rank}</strong> — Inside the ${conf.totalPrizePool} Cash Payout Pool!`;
-      teaserEl.className = "rank-teaser top5-glow";
-    } else {
-      teaserEl.innerHTML = `Official Entry Ranked: <strong>#${rank}</strong> this week`;
-      teaserEl.className = "rank-teaser";
+    if (badgeEl) {
+      badgeEl.textContent = isClassic
+        ? `CLASSIC (CASUAL)`
+        : `${conf.sponsorName.toUpperCase()} PRIZE RUN`;
+      badgeEl.className = "modal-badge";
     }
-  }
 
-  // Chances & Simple Ticket Display (Points 2 & 3: completely unambiguous)
-  const chancesLeft = chancesManager.getChancesRemaining();
-  const chancesLabel = document.getElementById("chancesLabel");
-  const inviteFriendsBtn = document.getElementById("inviteFriendsBtn");
-  const claimBtn = document.getElementById("claimSpotBtn");
-  const restartBtn = document.getElementById("restartBtn");
+    const scoreEl = document.getElementById("modalScore");
+    if (scoreEl) scoreEl.textContent = score.toLocaleString();
 
-  if (chancesLabel) {
-    if (isClassic) {
-      chancesLabel.innerHTML = `🎯 <strong>Classic Mode:</strong> Unlimited free casual play. Zero tickets used.`;
-    } else if (chancesLeft > 0) {
-      chancesLabel.innerHTML = `🎟️ <strong>Prize Run Finished:</strong> ${chancesLeft} of 3 daily tickets remaining.`;
-    } else {
-      chancesLabel.innerHTML = `⚠️ <strong>All 3 daily tickets used.</strong> Resets daily at midnight!`;
+    // Performance Grading Card
+    const perfCard = document.getElementById("modalPerfCard");
+    if (perfCard) {
+      if (perf) {
+        perfCard.style.display = "flex";
+        const effEl = document.getElementById("modalEfficiencyGrade");
+        const stratEl = document.getElementById("modalStrategyGrade");
+        const linesEl = document.getElementById("modalLinesCleared");
+        const comboEl = document.getElementById("modalMaxCombo");
+
+        if (effEl) {
+          effEl.textContent = perf.efficiencyGrade;
+          effEl.className = `perf-chip-val grade-${perf.efficiencyGrade.replace("+", "plus").toLowerCase()}`;
+        }
+        if (stratEl) {
+          stratEl.textContent = perf.strategicGrade;
+        }
+        if (linesEl) {
+          linesEl.textContent = `${perf.totalLines}`;
+        }
+        if (comboEl) {
+          comboEl.textContent = `${perf.maxCombo}x`;
+        }
+      } else {
+        perfCard.style.display = "none";
+      }
     }
-  }
 
-  if (restartBtn) {
-    if (isClassic) {
-      restartBtn.textContent = "🔄 Play Classic Again";
-    } else {
-      restartBtn.textContent = chancesLeft > 0 ? `🎟️ Play Next Ticket (${chancesLeft} Left)` : "🏆 Tournament Complete";
+    const rank = estimateRank(score);
+    const teaserEl = document.getElementById("modalRankTeaser");
+    const top1Reward = conf?.prizeTiers?.[0]?.reward || `${conf.currencySymbol}250`;
+    const top2Reward = conf?.prizeTiers?.[1]?.reward || `${conf.currencySymbol}150`;
+    const top3Reward = conf?.prizeTiers?.[2]?.reward || `${conf.currencySymbol}100`;
+
+    if (teaserEl) {
+      if (isClassic) {
+        teaserEl.innerHTML = `🎯 Classic Casual Score: <strong>${score.toLocaleString()}</strong>`;
+        teaserEl.className = "rank-teaser";
+      } else if (rank === 1) {
+        teaserEl.innerHTML = `🌟 <strong>NEW #1 LEADER!</strong> Eligible for ${top1Reward} Grand Prize!`;
+        teaserEl.className = "rank-teaser gold-glow";
+      } else if (rank === 2) {
+        teaserEl.innerHTML = `🥈 <strong>RANK #2!</strong> Eligible for ${top2Reward} Runner-Up Prize!`;
+        teaserEl.className = "rank-teaser gold-glow";
+      } else if (rank === 3) {
+        teaserEl.innerHTML = `🥉 <strong>RANK #3!</strong> Eligible for ${top3Reward} 3rd Place Prize!`;
+        teaserEl.className = "rank-teaser top5-glow";
+      } else if (rank <= 10) {
+        teaserEl.innerHTML = `🔥 Ranked <strong>#${rank}</strong> — Inside the ${conf.totalPrizePool} Cash Payout Pool!`;
+        teaserEl.className = "rank-teaser top5-glow";
+      } else {
+        teaserEl.innerHTML = `Official Entry Ranked: <strong>#${rank}</strong> this week`;
+        teaserEl.className = "rank-teaser";
+      }
     }
-  }
 
-  if (inviteFriendsBtn) {
-    inviteFriendsBtn.style.display = !isClassic && chancesLeft <= 1 ? "flex" : "none";
-  }
+    // Chances & Simple Ticket Display (Points 2 & 3: completely unambiguous)
+    const chancesLeft = chancesManager.getChancesRemaining();
+    const chancesLabel = document.getElementById("chancesLabel");
+    const inviteFriendsBtn = document.getElementById("inviteFriendsBtn");
+    const claimBtn = document.getElementById("claimSpotBtn");
+    const restartBtn = document.getElementById("restartBtn");
 
-  if (claimBtn) {
-    claimBtn.style.display = isClassic ? "none" : "flex";
-    claimBtn.removeAttribute("disabled");
-    claimBtn.textContent = "💬 Claim Your Prize Spot with WhatsApp";
-  }
+    if (chancesLabel) {
+      if (isClassic) {
+        chancesLabel.innerHTML = `🎯 <strong>Classic Mode:</strong> Unlimited free casual play. Zero tickets used.`;
+      } else if (chancesLeft > 0) {
+        chancesLabel.innerHTML = `🎟️ <strong>Prize Run Finished:</strong> ${chancesLeft} of 3 daily tickets remaining.`;
+      } else {
+        chancesLabel.innerHTML = `⚠️ <strong>All 3 daily tickets used.</strong> Resets daily at midnight!`;
+      }
+    }
 
-  const lbContainer = document.getElementById("modalLeaderboardContainer");
-  if (lbContainer) {
-    lbContainer.innerHTML = renderLeaderboardHTML(score);
+    if (restartBtn) {
+      if (isClassic) {
+        restartBtn.textContent = "🔄 Play Classic Again";
+      } else {
+        restartBtn.textContent = chancesLeft > 0 ? `🎟️ Play Next Ticket (${chancesLeft} Left)` : "🏆 Tournament Complete";
+      }
+    }
+
+    if (inviteFriendsBtn) {
+      inviteFriendsBtn.style.display = !isClassic && chancesLeft <= 1 ? "flex" : "none";
+    }
+
+    if (claimBtn) {
+      claimBtn.style.display = isClassic ? "none" : "flex";
+      claimBtn.removeAttribute("disabled");
+      claimBtn.textContent = "💬 Claim Your Prize Spot with WhatsApp";
+    }
+
+    const lbContainer = document.getElementById("modalLeaderboardContainer");
+    if (lbContainer) {
+      lbContainer.innerHTML = renderLeaderboardHTML(score);
+    }
+  } catch (err) {
+    console.error("Error setting up GameOver modal content:", err);
   }
 
   modalEl.classList.add("active");

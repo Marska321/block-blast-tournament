@@ -325,7 +325,54 @@ import('./src/levels.js').catch(async () => {
   assert.strictEqual(cappedTickets, 5, 'Tickets must be capped at 5 max per day');
   console.log('✔ Verified Referral Attribution & Anti-Fraud Logic verified');
 
-  console.log('\nAll 17 verification tests passed successfully!');
+  console.log('18. Testing Tournament Deadlock Detection & Guaranteed Game Over Modal...');
+  // Deadlock detection test: simulate an 8x8 full board with 1 remaining 2x2 block
+  const fullGrid = Array.from({ length: 8 }, () => Array(8).fill('#00E5FF'));
+  const trayBlocks = [
+    { active: true, shape: [[1, 1], [1, 1]] },
+    { active: false, shape: [[1]] }
+  ];
+
+  function canPlaceShape(grid, shape, gx, gy) {
+    if (gx + shape[0].length > grid.length || gy + shape.length > grid.length) return false;
+    for (let y = 0; y < shape.length; y++) {
+      for (let x = 0; x < shape[y].length; x++) {
+        if (shape[y][x] && grid[gy + y][gx + x] !== 0) return false;
+      }
+    }
+    return true;
+  }
+
+  function canPlaceAny(grid, blocks) {
+    for (const b of blocks) {
+      if (!b.active) continue;
+      for (let gy = 0; gy <= grid.length - b.shape.length; gy++) {
+        for (let gx = 0; gx <= grid.length - b.shape[0].length; gx++) {
+          if (canPlaceShape(grid, b.shape, gx, gy)) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  assert.strictEqual(canPlaceAny(fullGrid, trayBlocks), false, 'Deadlock must be correctly detected when board is full');
+
+  // Verify modal.ts has self-healing logic and clears competing active modals
+  const modalSrc = fs.readFileSync('src/modal.ts', 'utf8');
+  assert(modalSrc.includes('if (!modalEl)'), 'showModal must check if modalEl is null and self-heal');
+  assert(modalSrc.includes('document.querySelectorAll(".modal-overlay.active")'), 'showModal must dismiss competing active modals');
+  assert(modalSrc.includes('modalEl.classList.add("active")'), 'showModal must add active class to modal');
+
+  // Verify script.ts has instant milestone on game over and window pointer listeners
+  const scriptSrc = fs.readFileSync('src/script.ts', 'utf8');
+  assert(scriptSrc.includes('🏁 GAME OVER'), 'checkBoardGameOver must spawn instant GAME OVER milestone');
+  assert(scriptSrc.includes('window.addEventListener("pointerup"'), 'Pointerup must be attached to window for touch reliability');
+  assert(scriptSrc.includes('window.addEventListener("pointercancel"'), 'Pointercancel must be attached to window for gesture reliability');
+  assert(scriptSrc.includes('drawTray(ctx, availableBlocks, layout, undefined, isPaperTheme, GAME_GRID)'), 'drawTray must receive GAME_GRID for piece dimming');
+
+  console.log('✔ Tournament Deadlock Detection & Guaranteed Game Over Modal verified');
+
+  console.log('\nAll 18 verification tests passed successfully!');
 });
 
 

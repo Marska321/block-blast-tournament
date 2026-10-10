@@ -1653,7 +1653,8 @@ export function drawTray(
   availableBlocks: TrayBlock[],
   layout?: LayoutMetrics,
   fallbackBlockSize?: number,
-  isPaperTheme: boolean = false
+  isPaperTheme: boolean = false,
+  grid?: (string | 0)[][]
 ) {
   // 1. Tray framing: Subtle rounded container and slot cradles
   if (layout) {
@@ -1713,8 +1714,24 @@ export function drawTray(
   }
 
   // 2. Render active pieces inside slots
+  const gridSize = grid ? grid.length : 0;
   for (const block of availableBlocks) {
     if (block.active) {
+      let isPlayable = true;
+      if (grid && gridSize > 0) {
+        isPlayable = false;
+        for (let gy = 0; gy <= gridSize - block.shape.length; gy++) {
+          for (let gx = 0; gx <= gridSize - block.shape[0].length; gx++) {
+            if (canPlaceBlockAtPosition(grid, block.shape, gx, gy)) {
+              isPlayable = true;
+              break;
+            }
+          }
+          if (isPlayable) break;
+        }
+      }
+
+      const alpha = isPlayable ? 1 : 0.32;
       const size = block.cellSize || fallbackBlockSize || 32;
       drawPiece(
         ctx,
@@ -1723,9 +1740,9 @@ export function drawTray(
         block.y,
         size,
         block.color,
-        1,
-        block.isGlowing,
-        block.isGolden
+        alpha,
+        isPlayable && block.isGlowing,
+        isPlayable && block.isGolden
       );
     }
   }

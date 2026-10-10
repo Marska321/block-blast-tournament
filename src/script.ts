@@ -871,6 +871,16 @@ function checkBoardGameOver(): boolean {
     clearActiveGameSession();
     soundManager.playGameOver();
 
+    // Instant on-screen feedback so the player immediately knows the game has concluded
+    const centerBoardX = layout.boardX + layout.boardSize / 2;
+    const centerBoardY = layout.boardY + layout.boardSize / 2;
+    floatingTexts.spawnMilestone(
+      "🏁 GAME OVER",
+      "No moves left on the board!",
+      centerBoardX,
+      centerBoardY
+    );
+
     if (currentMode.id === GameModeId.LEVELS && currentLevelConfig) {
       const currentLvl = currentLevelConfig.level;
       levelFailCountMap[currentLvl] = (levelFailCountMap[currentLvl] || 0) + 1;
@@ -922,52 +932,65 @@ function checkBoardGameOver(): boolean {
               onClose: () => {},
             }),
         });
-      }, 350);
-    } else if (currentMode.id === GameModeId.CLASSIC) {
-      leaderboardManager.recordTourneyScore(score);
-      sessionManager.finishSession(score);
-      setTimeout(() => {
-        showModal(score, currentMode.name, computePerformanceStats());
-      }, 350);
+      }, 300);
     } else {
-      // Official Tournament Mode: Submit to cloud backend with anti-cheat token
-      leaderboardManager.recordTourneyScore(score);
-      sessionManager.finishSession(score);
+      // Classic or Official Tournament Mode
+      const isTournament = currentMode.id === GameModeId.TOURNAMENT;
+      try {
+        leaderboardManager.recordTourneyScore(score);
+        sessionManager.finishSession(score);
+      } catch (e) {
+        console.warn("Session score storage error:", e);
+      }
 
-      const profile = authManager.getProfile();
-      const playerId = profile?.id || "guest_player";
-      const nickname = profile?.nickname || "Guest Player";
+      if (isTournament) {
+        try {
+          const profile = authManager.getProfile();
+          const playerId = profile?.id || "guest_player";
+          const nickname = profile?.nickname || "Guest Player";
 
-      submitTournamentScore({
-        playerId,
-        nickname,
-        phone: profile?.phone,
-        country: profile?.country,
-        mode: "classic",
-        score,
-        linesCleared: totalLinesCleared,
-        movesPlaced: totalMovesPlaced,
-        maxCombo: maxComboAchieved,
-        seed: currentTournamentSeed || Date.now(),
-        token: currentTournamentToken || undefined,
-      }).catch((err) => {
-        console.warn("Async tournament score submit fallback:", err);
-      });
+          submitTournamentScore({
+            playerId,
+            nickname,
+            phone: profile?.phone,
+            country: profile?.country,
+            mode: "classic",
+            score,
+            linesCleared: totalLinesCleared,
+            movesPlaced: totalMovesPlaced,
+            maxCombo: maxComboAchieved,
+            seed: currentTournamentSeed || Date.now(),
+            token: currentTournamentToken || undefined,
+          }).catch((err) => {
+            console.warn("Async tournament score submit fallback:", err);
+          });
+        } catch (authErr) {
+          console.warn("Tournament profile retrieval fallback:", authErr);
+        }
+      }
 
+      // Display Game Over Modal with performance metrics
       setTimeout(() => {
-        showModal(score, currentMode.name, computePerformanceStats());
-      }, 350);
+        try {
+          showModal(score, currentMode.name, computePerformanceStats());
+        } catch (modalErr) {
+          console.error("showModal execution fallback:", modalErr);
+          showModal(score, currentMode.name);
+        }
+      }, 300);
     }
 
     // Verify any pending referral if newcomer completed a game
-    referralManager.verifyPendingReferralOnFirstGame(score).then((res) => {
-      if (res.verified) {
-        updateHUDChances();
-        const centerBoardX = gridOffset.x + (currentMode.gridSize * gridOffset.cellSize) / 2;
-        const centerBoardY = gridOffset.y + (currentMode.gridSize * gridOffset.cellSize) / 2;
-        floatingTexts.spawnMilestone("🎁 WELCOME BONUS!", "+1 Bonus Ticket Unlocked!", centerBoardX, centerBoardY);
-      }
-    });
+    try {
+      referralManager.verifyPendingReferralOnFirstGame(score).then((res) => {
+        if (res.verified) {
+          updateHUDChances();
+          const cbX = gridOffset.x + (currentMode.gridSize * gridOffset.cellSize) / 2;
+          const cbY = gridOffset.y + (currentMode.gridSize * gridOffset.cellSize) / 2;
+          floatingTexts.spawnMilestone("🎁 WELCOME BONUS!", "+1 Bonus Ticket Unlocked!", cbX, cbY);
+        }
+      });
+    } catch {}
 
     return true;
   }
@@ -1417,18 +1440,23 @@ canvas.addEventListener(
 );
 
 const endPointer = (e: PointerEvent) => {
-  if (e.pointerId !== activePointerId) return;
+  if (activePointerId !== null && e.pointerId !== activePointerId) return;
   activePointerId = null;
   cachedCanvasRect = null;
   handlePointerUp();
 };
 canvas.addEventListener("pointerup", endPointer);
-canvas.addEventListener("pointercancel", (e) => {
-  if (e.pointerId !== activePointerId) return;
+window.addEventListener("pointerup", endPointer);
+
+const cancelPointer = (e: PointerEvent) => {
+  if (activePointerId !== null && e.pointerId !== activePointerId) return;
   activePointerId = null;
   cachedCanvasRect = null;
   activeBlock = null; // cancelled gesture: return piece to tray, never place it
-});
+  checkBoardGameOver();
+};
+canvas.addEventListener("pointercancel", cancelPointer);
+window.addEventListener("pointercancel", cancelPointer);
 
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
@@ -1605,8 +1633,8 @@ function gameLoop() {
   particles.updateAndDraw(ctx);
   floatingTexts.updateAndDraw(ctx);
 
-  // Draw Available Blocks in Tray (with framing and slot cradles)
-  drawTray(ctx, availableBlocks, layout, undefined, isPaperTheme);
+  // Draw Available Blocks in Tray (with framing, slot cradles, and dynamic solvability dimming)
+  drawTray(ctx, availableBlocks, layout, undefined, isPaperTheme, GAME_GRID);
 
   // Draw Ghost Block & Dragged Piece
   if (activeBlock) {
