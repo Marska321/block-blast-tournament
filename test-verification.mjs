@@ -486,7 +486,31 @@ import('./src/levels.js').catch(async () => {
 
   console.log('✔ Pre-Season Voucher Cup & Upcoming Partners ("COMING SOON") verified');
 
-  console.log('\nAll 24 verification tests passed successfully!');
+  console.log('25. Testing Milestone-Based Unlocks & Dynamic Block Skin Evolution...');
+  const gameFuncSrc = fs.readFileSync('src/gameFunctions.ts', 'utf8');
+  assert(gameFuncSrc.includes('resetSessionBlockStyle'), 'gameFunctions.ts must export resetSessionBlockStyle');
+  assert(gameFuncSrc.includes('triggerRandomBlockStyleMutation'), 'gameFunctions.ts must export triggerRandomBlockStyleMutation');
+  assert(gameFuncSrc.includes('let blockStyle: BlockStyle = "bevel"'), 'Default blockStyle must start as bevel');
+
+  const wallpaperSrc = fs.readFileSync('src/wallpaper.ts', 'utf8');
+  assert(wallpaperSrc.includes('isWallpaperUnlocked'), 'wallpaper.ts must export isWallpaperUnlocked');
+  assert(wallpaperSrc.includes('getLifetimeBestScore'), 'wallpaper.ts must export getLifetimeBestScore');
+  assert(wallpaperSrc.includes('updateLifetimeBestScore'), 'wallpaper.ts must export updateLifetimeBestScore');
+  assert(wallpaperSrc.includes('requiredScore'), 'wallpaper.ts presets must have requiredScore');
+
+  const wallpaperModalSrc = fs.readFileSync('src/wallpaperModal.ts', 'utf8');
+  assert(wallpaperModalSrc.includes('dynamicSkinInfoCard'), 'wallpaperModal.ts must contain dynamicSkinInfoCard');
+  assert(wallpaperModalSrc.includes('wallpaperVerifiedLockBox'), 'wallpaperModal.ts must have wallpaperVerifiedLockBox');
+  assert(wallpaperModalSrc.includes('EXCLUSIVE TO VERIFIED COMPETITORS'), 'wallpaperModal.ts must lock custom photo behind verified status');
+  assert(!wallpaperModalSrc.includes('data-block-style'), 'wallpaperModal.ts must not have manual block style buttons');
+
+  const scriptRef = fs.readFileSync('src/script.ts', 'utf8');
+  assert(scriptRef.includes('triggerRandomBlockStyleMutation'), 'script.ts must call triggerRandomBlockStyleMutation');
+  assert(scriptRef.includes('resetSessionBlockStyle'), 'script.ts must call resetSessionBlockStyle on init');
+
+  console.log('✔ Milestone-Based Unlocks & Dynamic Block Skin Evolution verified');
+
+  console.log('\nAll 25 verification tests passed successfully!');
 });
 
 

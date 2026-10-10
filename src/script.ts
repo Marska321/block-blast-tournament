@@ -2,6 +2,8 @@ import {
   computeLayout,
   computePieceCellSize,
   setBlockStyle,
+  resetSessionBlockStyle,
+  triggerRandomBlockStyleMutation,
   setSpriteScale,
   invalidateBoardCache,
   LayoutMetrics,
@@ -53,7 +55,7 @@ import {
   requestTournamentSessionToken,
   submitTournamentScore,
 } from "./supabaseClient";
-import { wallpaperManager } from "./wallpaper";
+import { wallpaperManager, updateLifetimeBestScore } from "./wallpaper";
 import { showWallpaperModal } from "./wallpaperModal";
 import { getPhotoRevealMode, unlockPhotoReveal } from "./photoReveal";
 import { referralManager } from "./referral";
@@ -592,6 +594,7 @@ function initLevelGame(
     activeGoldenPositions.clear();
     pendingSpecialDeal = false;
     lastAnnouncedMilestone = 0;
+    resetSessionBlockStyle(isPaperTheme);
   }
 
   currentMode = GAME_MODES[GameModeId.LEVELS];
@@ -691,6 +694,7 @@ function initClassicGame(isResume: boolean = false) {
     lastAnnouncedMilestone = 0;
     activeRevealedTiles.clear();
     allTilesPreviouslyRevealed = false;
+    resetSessionBlockStyle(isPaperTheme);
   }
 
   currentMode = GAME_MODES[GameModeId.CLASSIC];
@@ -767,6 +771,7 @@ function initTournamentGame(
     lastAnnouncedMilestone = 0;
     activeRevealedTiles.clear();
     allTilesPreviouslyRevealed = false;
+    resetSessionBlockStyle(isPaperTheme);
   }
 
   currentMode = GAME_MODES[GameModeId.TOURNAMENT];
@@ -1297,6 +1302,30 @@ function handlePointerUp() {
 
     comboBar.update(combo);
     updateScoreUI();
+    updateLifetimeBestScore(score);
+
+    // Dynamic Block Skin Mutation on Milestone Achievements!
+    // As players hit 1000, 2500, 5000, 8000, 12000, 16000 pts, randomly shift authentic block styles!
+    const centerBoardX = gridOffset.x + (gridSize * gridOffset.cellSize) / 2;
+    const centerBoardY = gridOffset.y + (gridSize * gridOffset.cellSize) / 2;
+
+    const skinMilestones = [1000, 2500, 5000, 8000, 12000, 16000, 20000];
+    for (const milestone of skinMilestones) {
+      if (score >= milestone && lastAnnouncedMilestone < milestone) {
+        lastAnnouncedMilestone = milestone;
+        if (!isPaperTheme) {
+          const newSkin = triggerRandomBlockStyleMutation(false);
+          soundManager.playAllClear();
+          floatingTexts.spawnMilestone(
+            `✨ SKIN EVOLUTION!`,
+            `${newSkin.icon} ${newSkin.name.toUpperCase()} UNLOCKED`,
+            centerBoardX,
+            centerBoardY
+          );
+        }
+        break;
+      }
+    }
 
     // In Official Prize Runs, celebrate competitive milestone ranks!
     if (
@@ -1304,9 +1333,6 @@ function handlePointerUp() {
       !chancesManager.isPracticeMode() &&
       linesCleared > 0
     ) {
-      const centerBoardX = gridOffset.x + (gridSize * gridOffset.cellSize) / 2;
-      const centerBoardY = gridOffset.y + (gridSize * gridOffset.cellSize) / 2;
-
       if (score >= 9500 && lastAnnouncedMilestone < 9500) {
         lastAnnouncedMilestone = 9500;
         soundManager.playAllClear();
@@ -1373,6 +1399,7 @@ function handlePointerUp() {
         );
         levelProgress.completeLevel(currentLvl, score, stars);
         levelFailCountMap[currentLvl] = 0;
+        updateLifetimeBestScore(score);
         referralManager.verifyPendingReferralOnFirstGame(score);
 
         setTimeout(() => {

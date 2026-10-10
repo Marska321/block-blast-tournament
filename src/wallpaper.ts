@@ -8,6 +8,9 @@ export interface WallpaperTheme {
   previewGradient: string;
   icon: string;
   isDark: boolean;
+  requiredScore?: number;
+  requiredLevel?: number;
+  unlockRequirementText: string;
 }
 
 export const WALLPAPER_PRESETS: WallpaperTheme[] = [
@@ -19,6 +22,7 @@ export const WALLPAPER_PRESETS: WallpaperTheme[] = [
     previewGradient: "linear-gradient(135deg, #1e2942 0%, #0d1322 100%)",
     icon: "🎯",
     isDark: true,
+    unlockRequirementText: "Default starter theme",
   },
   {
     id: "sakura-pink",
@@ -28,15 +32,9 @@ export const WALLPAPER_PRESETS: WallpaperTheme[] = [
     previewGradient: "linear-gradient(135deg, #f472b6 0%, #db2777 100%)",
     icon: "🌸",
     isDark: true,
-  },
-  {
-    id: "cosmic-nebula",
-    name: "Cosmic Nebula",
-    category: "preset",
-    containerBg: "radial-gradient(circle at 50% 20%, #2e1065 0%, #090314 100%)",
-    previewGradient: "linear-gradient(135deg, #7c3aed 0%, #4338ca 100%)",
-    icon: "🌌",
-    isDark: true,
+    requiredScore: 1500,
+    requiredLevel: 3,
+    unlockRequirementText: "Reach 1,500 pts or Level 3",
   },
   {
     id: "ocean-abyss",
@@ -46,6 +44,21 @@ export const WALLPAPER_PRESETS: WallpaperTheme[] = [
     previewGradient: "linear-gradient(135deg, #059669 0%, #0f766e 100%)",
     icon: "🌊",
     isDark: true,
+    requiredScore: 3500,
+    requiredLevel: 5,
+    unlockRequirementText: "Reach 3,500 pts or Level 5",
+  },
+  {
+    id: "cosmic-nebula",
+    name: "Cosmic Nebula",
+    category: "preset",
+    containerBg: "radial-gradient(circle at 50% 20%, #2e1065 0%, #090314 100%)",
+    previewGradient: "linear-gradient(135deg, #7c3aed 0%, #4338ca 100%)",
+    icon: "🌌",
+    isDark: true,
+    requiredScore: 6000,
+    requiredLevel: 10,
+    unlockRequirementText: "Reach 6,000 pts or Level 10",
   },
   {
     id: "cyberpunk-sunset",
@@ -55,6 +68,9 @@ export const WALLPAPER_PRESETS: WallpaperTheme[] = [
     previewGradient: "linear-gradient(135deg, #e11d48 0%, #ea580c 100%)",
     icon: "🌆",
     isDark: true,
+    requiredScore: 9000,
+    requiredLevel: 15,
+    unlockRequirementText: "Reach 9,000 pts or Level 15",
   },
   {
     id: "midnight-onyx",
@@ -64,6 +80,8 @@ export const WALLPAPER_PRESETS: WallpaperTheme[] = [
     previewGradient: "linear-gradient(135deg, #27272a 0%, #09090b 100%)",
     icon: "🌑",
     isDark: true,
+    requiredScore: 12000,
+    unlockRequirementText: "Reach 12,000 pts (Pro Tier)",
   },
   {
     id: "warm-paper",
@@ -73,8 +91,40 @@ export const WALLPAPER_PRESETS: WallpaperTheme[] = [
     previewGradient: "linear-gradient(135deg, #fbf8f2 0%, #efe7d8 100%)",
     icon: "📜",
     isDark: false,
+    requiredScore: 15000,
+    requiredLevel: 20,
+    unlockRequirementText: "Reach 15,000 pts or Level 20",
   },
 ];
+
+export const STORAGE_LIFETIME_BEST_SCORE = "bb_lifetime_best_score";
+
+export function getLifetimeBestScore(): number {
+  try {
+    const val = localStorage.getItem(STORAGE_LIFETIME_BEST_SCORE);
+    if (val) return parseInt(val, 10) || 0;
+  } catch {}
+  return 0;
+}
+
+export function updateLifetimeBestScore(score: number): number {
+  const current = getLifetimeBestScore();
+  if (score > current) {
+    try {
+      localStorage.setItem(STORAGE_LIFETIME_BEST_SCORE, String(score));
+    } catch {}
+    return score;
+  }
+  return current;
+}
+
+export function isWallpaperUnlocked(theme: WallpaperTheme, highestLevel: number = 1): boolean {
+  if (!theme.requiredScore && !theme.requiredLevel) return true;
+  const bestScore = getLifetimeBestScore();
+  if (theme.requiredScore && bestScore >= theme.requiredScore) return true;
+  if (theme.requiredLevel && highestLevel >= theme.requiredLevel) return true;
+  return false;
+}
 
 export interface SponsorConfig {
   name: string;

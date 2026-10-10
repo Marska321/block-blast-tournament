@@ -178,7 +178,15 @@ export const BLOCK_STYLE_PRESETS: BlockStylePreset[] = [
   },
 ];
 
-let blockStyle: BlockStyle = (typeof localStorage !== "undefined" && (localStorage.getItem("bb_block_style") as BlockStyle)) || "bevel";
+let blockStyle: BlockStyle = "bevel";
+
+export function resetSessionBlockStyle(isPaper: boolean = false) {
+  const target: BlockStyle = isPaper ? "flat" : "bevel";
+  blockStyle = target;
+  spriteCache.clear();
+  invalidateBoardCache();
+  return target;
+}
 
 export function setBlockStyle(style: BlockStyle) {
   if (style !== blockStyle) {
@@ -193,6 +201,28 @@ export function setBlockStyle(style: BlockStyle) {
 
 export function getBlockStyle(): BlockStyle {
   return blockStyle;
+}
+
+/**
+ * Dynamically shifts the active block skin to another authentic variation upon milestone achievements.
+ */
+export function triggerRandomBlockStyleMutation(isPaper: boolean = false): BlockStylePreset {
+  if (isPaper) {
+    blockStyle = "flat";
+    spriteCache.clear();
+    invalidateBoardCache();
+    return BLOCK_STYLE_PRESETS.find((p) => p.id === "flat") || BLOCK_STYLE_PRESETS[0];
+  }
+
+  // Eligible mutation styles (exclude current style and flat/matte)
+  const candidatePresets = BLOCK_STYLE_PRESETS.filter(
+    (p) => p.id !== blockStyle && p.id !== "flat"
+  );
+  const chosen = candidatePresets[Math.floor(Math.random() * candidatePresets.length)] || BLOCK_STYLE_PRESETS[0];
+  blockStyle = chosen.id;
+  spriteCache.clear();
+  invalidateBoardCache();
+  return chosen;
 }
 
 // Proportional mix toward white (amt > 0) or black (amt < 0). Keeps colours saturated,
