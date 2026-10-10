@@ -417,7 +417,23 @@ import('./src/levels.js').catch(async () => {
 
   console.log('✔ Tournament Rules & Terms and Conditions verified');
 
-  console.log('\nAll 20 verification tests passed successfully!');
+  console.log('21. Testing No Space For Bricks Notification & Direct WhatsApp Registration...');
+  const scriptContent = fs.readFileSync('src/script.ts', 'utf8');
+  assert(scriptContent.includes('showGameOverToast("🚫 NO SPACE FOR BRICKS — OUT OF MOVES!")'), 'Must trigger high-visibility toast banner on deadlock');
+  assert(scriptContent.includes('gameOverToastBanner'), 'Must create gameOverToastBanner element');
+
+  const modalContent = fs.readFileSync('src/modal.ts', 'utf8');
+  assert(modalContent.includes('modalReasonPill'), 'Game Over modal must have modalReasonPill');
+  assert(modalContent.includes('No space left for remaining bricks'), 'Game Over modal must clearly explain why game ended');
+  assert(modalContent.includes('wa.me'), 'claimSpotBtn must directly trigger WhatsApp registration');
+  assert(modalContent.includes('window.location.href = waUrl'), 'Must have fallback redirect to WhatsApp for mobile popup blockers');
+
+  const authContent = fs.readFileSync('src/auth.ts', 'utf8');
+  assert(authContent.includes('if (!this.modalEl)'), 'authManager.show must self-heal if modalEl is null');
+
+  console.log('✔ No Space For Bricks Notification & Direct WhatsApp Registration verified');
+
+  console.log('\nAll 21 verification tests passed successfully!');
 });
 
 

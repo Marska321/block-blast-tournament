@@ -249,6 +249,7 @@ function saveActiveGameSession() {
 function clearActiveGameSession() {
   try {
     localStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION);
+    toastEl?.classList.remove("show");
   } catch (e) {}
 }
 
@@ -866,6 +867,22 @@ function getCanvasCoords(clientX: number, clientY: number): { x: number; y: numb
   };
 }
 
+let toastEl: HTMLElement | null = null;
+function showGameOverToast(message: string) {
+  if (!toastEl) {
+    toastEl = document.createElement("div");
+    toastEl.id = "gameOverToastBanner";
+    toastEl.className = "game-over-toast-banner";
+    const container = document.getElementById("game-container") || document.body;
+    container.appendChild(toastEl);
+  }
+  toastEl.textContent = message;
+  toastEl.classList.add("show");
+  setTimeout(() => {
+    toastEl?.classList.remove("show");
+  }, 2200);
+}
+
 function checkBoardGameOver(): boolean {
   if (gameOver) return false;
   if (!availableBlocks.some((b) => b.active)) return false;
@@ -875,11 +892,12 @@ function checkBoardGameOver(): boolean {
     clearActiveGameSession();
     soundManager.playGameOver();
 
-    // Instant on-screen feedback so the player immediately knows the game has concluded
+    // Instant on-screen DOM toast + canvas milestone so player immediately knows no space remains
+    showGameOverToast("🚫 NO SPACE FOR BRICKS — OUT OF MOVES!");
     const centerBoardX = layout.boardX + layout.boardSize / 2;
     const centerBoardY = layout.boardY + layout.boardSize / 2;
     floatingTexts.spawnMilestone(
-      "🏁 GAME OVER",
+      "🏁 GAME OVER — NO SPACE FOR BRICKS",
       "No moves left on the board!",
       centerBoardX,
       centerBoardY

@@ -139,6 +139,9 @@ class AuthManager {
   }
 
   public show() {
+    if (!this.modalEl) {
+      this.initAuthModal(() => {});
+    }
     this.modalEl?.classList.add("active");
     const input = document.getElementById("authPhone") as HTMLInputElement;
     if (input) {

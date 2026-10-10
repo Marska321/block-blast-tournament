@@ -34,6 +34,9 @@ export function createGameOverModal({
     <div class="modal tournament-modal">
       <div id="modalBadge" class="modal-badge">WEEKLY TOURNAMENT</div>
       <h2 class="modal-title">Game Over</h2>
+      <div id="modalReasonPill" class="gameover-reason-pill">
+        🚫 Out of moves — No space for remaining bricks!
+      </div>
       
       <div class="modal-score-card">
         <span class="score-label">FINAL SCORE</span>
@@ -101,20 +104,31 @@ export function createGameOverModal({
   });
 
   document.getElementById("claimSpotBtn")?.addEventListener("click", () => {
-    if (authManager.isLoggedIn()) {
+    try {
       const profile = authManager.getProfile();
       const score = parseInt(
         document.getElementById("modalScore")?.textContent?.replace(/,/g, "") || "0",
         10
       );
       const conf = tournamentConfigManager.getConfig();
-      const playerName = profile.nickname || "Player";
+      const playerName = profile.nickname || `Player-${profile.id.slice(-4)}`;
       const message = encodeURIComponent(
-        `Hi! I'm ${playerName} and I scored ${score.toLocaleString()} in the ${conf.sponsorName} ${conf.tournamentTitle}! Please register my leaderboard position for the ${conf.totalPrizePool} prize pool.`
+        `🏆 Block Blast Tournament Score Registration:\n` +
+        `• Player: ${playerName} (ID: ${profile.id})\n` +
+        `• Tournament: ${conf.sponsorName} ${conf.tournamentTitle}\n` +
+        `• Final Score: ${score.toLocaleString()} pts\n` +
+        `• Prize Pool: ${conf.totalPrizePool}\n\n` +
+        `Please register my official leaderboard ranking and prize claim!`
       );
-      window.open(`https://wa.me/?text=${message}`, "_blank");
-    } else {
-      authManager.show();
+      const waUrl = `https://wa.me/?text=${message}`;
+
+      const win = window.open(waUrl, "_blank");
+      if (!win || win.closed || typeof win.closed === "undefined") {
+        window.location.href = waUrl;
+      }
+    } catch (e) {
+      console.warn("WhatsApp open fallback:", e);
+      window.location.href = "https://wa.me/";
     }
   });
 }
@@ -159,6 +173,11 @@ export function showModal(
 
     const scoreEl = document.getElementById("modalScore");
     if (scoreEl) scoreEl.textContent = score.toLocaleString();
+
+    const reasonPill = document.getElementById("modalReasonPill");
+    if (reasonPill) {
+      reasonPill.innerHTML = `🚫 <strong>Out of moves:</strong> No space left for remaining bricks!`;
+    }
 
     // Performance Grading Card
     const perfCard = document.getElementById("modalPerfCard");
