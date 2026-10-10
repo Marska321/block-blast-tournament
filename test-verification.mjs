@@ -555,9 +555,17 @@ import('./src/levels.js').catch(async () => {
   }
   assert.strictEqual(fits, true, 'Diagonal piece must fit into diagonally adjacent corner gaps');
 
-  console.log('✔ Authentic Diagonal Step Pieces verified');
+  console.log('28. Testing Frosted Cupcake and Crispy Cracker Block Skins (Screenshots 1 & 2)...');
+  assert(gameFuncSrc.includes('renderCupcakeBlock'), 'gameFunctions.ts must implement renderCupcakeBlock');
+  assert(gameFuncSrc.includes('renderBiscuitBlock'), 'gameFunctions.ts must implement renderBiscuitBlock');
+  assert(gameFuncSrc.includes('id: "cupcake"'), 'BLOCK_STYLE_PRESETS must include cupcake skin');
+  assert(gameFuncSrc.includes('id: "biscuit"'), 'BLOCK_STYLE_PRESETS must include biscuit skin');
+  assert(wallpaperSrc.includes('id: "bakery-cafe"'), 'WALLPAPER_PRESETS must include bakery-cafe theme');
+  assert(stylesSrc.includes('.skin-evolution-showcase'), 'styles.css must style skin-evolution-showcase');
 
-  console.log('\nAll 27 verification tests passed successfully!');
+  console.log('✔ Frosted Cupcake and Crispy Cracker Block Skins verified');
+
+  console.log('\nAll 28 verification tests passed successfully!');
 });
 
 

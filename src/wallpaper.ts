@@ -73,6 +73,18 @@ export const WALLPAPER_PRESETS: WallpaperTheme[] = [
     unlockRequirementText: "Reach 9,000 pts or Level 15",
   },
   {
+    id: "bakery-cafe",
+    name: "Bakery Cafe",
+    category: "preset",
+    containerBg: "radial-gradient(circle at 50% 30%, #3d271d 0%, #1c100a 100%)",
+    previewGradient: "linear-gradient(135deg, #78350f 0%, #3d271d 100%)",
+    icon: "🧁",
+    isDark: true,
+    requiredScore: 2500,
+    requiredLevel: 4,
+    unlockRequirementText: "Reach 2,500 pts or Level 4",
+  },
+  {
     id: "midnight-onyx",
     name: "Midnight Onyx",
     category: "preset",

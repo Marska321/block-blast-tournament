@@ -2352,6 +2352,48 @@ body.theme-paper .tourney-bar-sub {
   margin: 0;
 }
 
+.skin-evolution-showcase {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.skin-showcase-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.64rem;
+  color: #cbd5e1;
+  position: relative;
+}
+
+.skin-showcase-item.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+.skin-showcase-icon {
+  font-size: 0.82rem;
+}
+
+.skin-showcase-active-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+  margin-left: 2px;
+}
+
 /* Verified Wallpaper Lock Box */
 .verified-wallpaper-locked {
   display: flex;

@@ -39,7 +39,7 @@ export function createWallpaperModal() {
 
       <div id="wallpaperStatusToast" class="wallpaper-status-toast" style="display: none;"></div>
 
-      <!-- Dynamic Block Skin Status Card (Replaces manual skin picker) -->
+      <!-- Dynamic Block Skin Status Card (Shows all evolving skin variations) -->
       <div class="wallpaper-section-title">🧱 IN-GAME BLOCK SKIN EVOLUTION</div>
       <div class="dynamic-skin-info-card" id="dynamicSkinInfoCard">
         <div class="dynamic-skin-status-row">
@@ -56,6 +56,7 @@ export function createWallpaperModal() {
             </p>
           </div>
         </div>
+        <div class="skin-evolution-showcase" id="skinEvolutionShowcase"></div>
       </div>
 
       <!-- Preset Themes Grid (Unlockable) -->
@@ -189,6 +190,21 @@ function renderWallpaperModal() {
   if (activeSkinNameEl) activeSkinNameEl.textContent = activeSkinPreset.name;
   if (activeSkinIconEl) activeSkinIconEl.textContent = activeSkinPreset.icon;
   if (activeSkinPreviewCircleEl) activeSkinPreviewCircleEl.style.background = activeSkinPreset.previewColor;
+
+  // Render showcase pills of all authentic skin variations
+  const showcaseEl = document.getElementById("skinEvolutionShowcase");
+  if (showcaseEl) {
+    showcaseEl.innerHTML = BLOCK_STYLE_PRESETS.filter((p) => p.id !== "flat").map((p) => {
+      const isCur = p.id === activeSkin;
+      return `
+        <div class="skin-showcase-item ${isCur ? "active" : ""}" title="${p.name}: ${p.desc}">
+          <span class="skin-showcase-icon">${p.icon}</span>
+          <span class="skin-showcase-name">${p.name}</span>
+          ${isCur ? '<span class="skin-showcase-active-dot"></span>' : ""}
+        </div>
+      `;
+    }).join("");
+  }
 
   // 2. Render Wallpaper & Theme Presets with Milestone Unlock Status
   const gridEl = document.getElementById("wallpaperPresetsGrid");

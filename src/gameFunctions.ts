@@ -114,9 +114,20 @@ function adjustColorBrightness(hex: string, percent: number): string {
 // - "cushion": soft rounded pillowy tiles with inset indent (Screenshot 3)
 // - "stitched": tufted velvet/leather pillow with stitched perimeter seams & button (Screenshot 4)
 // - "cosmic": crystalline tiles with sparkling starfield (Screenshot 5)
+// - "cupcake": birthday cupcake with frosting swirl, wafer base & sugar sprinkles
+// - "biscuit": crispy butter biscuit/cracker with scalloped fluted edges & dock holes
 // - "candy": glossy rounded pill reflection
 // - "flat": clean matte editorial tiles
-export type BlockStyle = "bevel" | "candy" | "flat" | "jelly" | "cushion" | "stitched" | "cosmic";
+export type BlockStyle =
+  | "bevel"
+  | "candy"
+  | "flat"
+  | "jelly"
+  | "cushion"
+  | "stitched"
+  | "cosmic"
+  | "cupcake"
+  | "biscuit";
 
 export interface BlockStylePreset {
   id: BlockStyle;
@@ -133,6 +144,20 @@ export const BLOCK_STYLE_PRESETS: BlockStylePreset[] = [
     icon: "💎",
     previewColor: "#3b82f6",
     desc: "Original Block Blast faceted chiseled tiles",
+  },
+  {
+    id: "cupcake",
+    name: "Frosted Cupcake",
+    icon: "🧁",
+    previewColor: "#f59e0b",
+    desc: "Vanilla frosting wave, colored wafer base & festive sprinkles",
+  },
+  {
+    id: "biscuit",
+    name: "Crispy Cracker",
+    icon: "🍪",
+    previewColor: "#38bdf8",
+    desc: "Scalloped fluted cracker with embossed center dock holes",
   },
   {
     id: "jelly",
@@ -271,6 +296,10 @@ function getBlockSprite(color: string, size: number): HTMLCanvasElement {
   sctx.scale(spriteScale, spriteScale);
   if (blockStyle === "bevel") {
     renderBevelBlock(sctx, SPRITE_MARGIN, SPRITE_MARGIN, size, color);
+  } else if (blockStyle === "cupcake") {
+    renderCupcakeBlock(sctx, SPRITE_MARGIN, SPRITE_MARGIN, size, color);
+  } else if (blockStyle === "biscuit") {
+    renderBiscuitBlock(sctx, SPRITE_MARGIN, SPRITE_MARGIN, size, color);
   } else if (blockStyle === "flat") {
     renderFlatBlock(sctx, SPRITE_MARGIN, SPRITE_MARGIN, size, color);
   } else if (blockStyle === "jelly") {
@@ -669,7 +698,304 @@ function renderCosmicBlock(
   ctx.restore();
 }
 
-// 5. Authentic Carved Plaque Tile Base for Jewel Blocks (Screenshot 1)
+// 5. Authentic Birthday Frosted Cupcake Block Renderer (Screenshot 1)
+// Features: Baked golden/pastel wafer base, creamy vanilla frosting drip wave, and festive sugar sprinkles
+function renderCupcakeBlock(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  size: number,
+  color: string
+) {
+  ctx.save();
+  const pad = 1;
+  const s = size - pad * 2;
+  const r = Math.max(3, Math.round(s * 0.16));
+  const x = px + pad;
+  const y = py + pad;
+
+  // Soft bakery drop shadow
+  ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(x + 1, y + 2, s, s, r);
+    ctx.fill();
+  }
+
+  // Clip to rounded square tile
+  const tracePath = () => {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, s, s, r);
+    else ctx.rect(x, y, s, s);
+  };
+
+  tracePath();
+  ctx.save();
+  ctx.clip();
+
+  // 1. Bottom Cake / Wafer Base (tinted by block color)
+  const waferH = s * 0.42;
+  const waferY = y + s - waferH;
+  const baseGrad = ctx.createLinearGradient(x, waferY, x, y + s);
+  baseGrad.addColorStop(0, shade(color, 0.15));
+  baseGrad.addColorStop(0.7, color);
+  baseGrad.addColorStop(1, shade(color, -0.28));
+  ctx.fillStyle = baseGrad;
+  ctx.fillRect(x, waferY, s, waferH);
+
+  // Diagonal waffle / wafer texture on the lower cupcake cup
+  ctx.save();
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.1)";
+  ctx.lineWidth = 1;
+  const step = Math.max(4, Math.round(s * 0.16));
+  for (let ox = -s; ox < s * 2; ox += step) {
+    ctx.beginPath();
+    ctx.moveTo(x + ox, waferY);
+    ctx.lineTo(x + ox + waferH, y + s);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(x + ox + waferH, waferY);
+    ctx.lineTo(x + ox, y + s);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 2. Creamy Vanilla / Fondant Frosting Top with Wave Drip
+  const dripMidY = y + s * 0.58;
+  const frostGrad = ctx.createLinearGradient(x, y, x, dripMidY);
+  frostGrad.addColorStop(0, "#ffffff");
+  frostGrad.addColorStop(0.65, "#fffdfa");
+  frostGrad.addColorStop(1, "#fef3c7"); // warm rich vanilla tint
+  ctx.fillStyle = frostGrad;
+
+  ctx.beginPath();
+  ctx.moveTo(x - 1, y - 1);
+  ctx.lineTo(x + s + 1, y - 1);
+  ctx.lineTo(x + s + 1, dripMidY - s * 0.04);
+  // Luscious scallop drips across bottom of frosting
+  ctx.bezierCurveTo(
+    x + s * 0.78,
+    dripMidY + s * 0.08,
+    x + s * 0.65,
+    dripMidY - s * 0.08,
+    x + s * 0.5,
+    dripMidY + s * 0.06
+  );
+  ctx.bezierCurveTo(
+    x + s * 0.35,
+    dripMidY + s * 0.12,
+    x + s * 0.22,
+    dripMidY - s * 0.06,
+    x - 1,
+    dripMidY + s * 0.04
+  );
+  ctx.closePath();
+  ctx.fill();
+
+  // Frosting glossy top highlight
+  const hlGrad = ctx.createLinearGradient(x, y, x, y + s * 0.22);
+  hlGrad.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+  hlGrad.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+  ctx.fillStyle = hlGrad;
+  ctx.fillRect(x, y, s, s * 0.22);
+
+  // Frosting wave shadow underneath the drip edge
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.14)";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x + s + 1, dripMidY - s * 0.04);
+  ctx.bezierCurveTo(
+    x + s * 0.78,
+    dripMidY + s * 0.08,
+    x + s * 0.65,
+    dripMidY - s * 0.08,
+    x + s * 0.5,
+    dripMidY + s * 0.06
+  );
+  ctx.bezierCurveTo(
+    x + s * 0.35,
+    dripMidY + s * 0.12,
+    x + s * 0.22,
+    dripMidY - s * 0.06,
+    x - 1,
+    dripMidY + s * 0.04
+  );
+  ctx.stroke();
+
+  // 3. Colorful Candy Sugar Sprinkles (Authentic Screenshot 1 placement)
+  // Sprinkles: Cyan pill, Strawberry red pill, Lemon yellow rod
+  const drawSprinkle = (sx: number, sy: number, angle: number, sprColor: string) => {
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate((angle * Math.PI) / 180);
+    ctx.fillStyle = sprColor;
+    const sw = Math.max(2.5, s * 0.12);
+    const sh = Math.max(1.2, s * 0.05);
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(-sw / 2, -sh / 2, sw, sh, sh * 0.5);
+      ctx.fill();
+    } else {
+      ctx.fillRect(-sw / 2, -sh / 2, sw, sh);
+    }
+    // Sprinkle specular glimmer
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.fillRect(-sw / 4, -sh / 2, sw / 2, sh * 0.4);
+    ctx.restore();
+  };
+
+  drawSprinkle(x + s * 0.3, y + s * 0.22, -28, "#f43f5e"); // Strawberry red
+  drawSprinkle(x + s * 0.72, y + s * 0.26, 32, "#06b6d4"); // Electric cyan
+  drawSprinkle(x + s * 0.52, y + s * 0.42, 12, "#eab308"); // Golden yellow
+
+  ctx.restore(); // end clip
+
+  // 4. Subtle exterior tile outline
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
+  ctx.lineWidth = 1;
+  tracePath();
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// 6. Authentic Crispy Cracker / Butter Biscuit Block Renderer (Screenshot 2)
+// Features: Scalloped/fluted perimeter, golden oven-baked gradient, and 4 embossed dock pin holes
+function renderBiscuitBlock(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  size: number,
+  color: string
+) {
+  ctx.save();
+  const pad = 1;
+  const s = size - pad * 2;
+  const x = px + pad;
+  const y = py + pad;
+
+  // Cracker soft drop shadow
+  ctx.fillStyle = "rgba(0, 0, 0, 0.26)";
+  if (ctx.roundRect) {
+    ctx.beginPath();
+    ctx.roundRect(x + 1, y + 2, s, s, Math.max(3, s * 0.15));
+    ctx.fill();
+  }
+
+  // 1. Scalloped / Fluted Biscuit Outline (Cracker ridged edges)
+  const scallops = 4; // 4 scallops per edge
+  const scallopDepth = Math.max(1.2, s * 0.045);
+  const cornerR = Math.max(3, s * 0.1);
+
+  ctx.beginPath();
+  // Start near top-left
+  ctx.moveTo(x + cornerR, y);
+
+  // Top edge scallops
+  const stepX = (s - cornerR * 2) / scallops;
+  for (let i = 0; i < scallops; i++) {
+    const sx1 = x + cornerR + i * stepX;
+    const sx2 = sx1 + stepX;
+    const sm = (sx1 + sx2) / 2;
+    ctx.quadraticCurveTo(sm, y + scallopDepth, sx2, y);
+  }
+
+  // Top-right corner
+  ctx.quadraticCurveTo(x + s, y, x + s, y + cornerR);
+
+  // Right edge scallops
+  const stepY = (s - cornerR * 2) / scallops;
+  for (let i = 0; i < scallops; i++) {
+    const sy1 = y + cornerR + i * stepY;
+    const sy2 = sy1 + stepY;
+    const sm = (sy1 + sy2) / 2;
+    ctx.quadraticCurveTo(x + s - scallopDepth, sm, x + s, sy2);
+  }
+
+  // Bottom-right corner
+  ctx.quadraticCurveTo(x + s, y + s, x + s - cornerR, y + s);
+
+  // Bottom edge scallops
+  for (let i = 0; i < scallops; i++) {
+    const sx1 = x + s - cornerR - i * stepX;
+    const sx2 = sx1 - stepX;
+    const sm = (sx1 + sx2) / 2;
+    ctx.quadraticCurveTo(sm, y + s - scallopDepth, sx2, y + s);
+  }
+
+  // Bottom-left corner
+  ctx.quadraticCurveTo(x, y + s, x, y + s - cornerR);
+
+  // Left edge scallops
+  for (let i = 0; i < scallops; i++) {
+    const sy1 = y + s - cornerR - i * stepY;
+    const sy2 = sy1 - stepY;
+    const sm = (sy1 + sy2) / 2;
+    ctx.quadraticCurveTo(x + scallopDepth, sm, x, sy2);
+  }
+
+  // Close to top-left corner
+  ctx.quadraticCurveTo(x, y, x + cornerR, y);
+  ctx.closePath();
+
+  ctx.save();
+  ctx.clip();
+
+  // 2. Baked Biscuit Fill with radial/linear toast gradient
+  const cx = x + s / 2;
+  const cy = y + s / 2;
+  const biscuitGrad = ctx.createRadialGradient(cx, cy, s * 0.1, cx, cy, s * 0.65);
+  biscuitGrad.addColorStop(0, shade(color, 0.28));
+  biscuitGrad.addColorStop(0.65, color);
+  biscuitGrad.addColorStop(1, shade(color, -0.32)); // toasted brown/dark rim
+  ctx.fillStyle = biscuitGrad;
+  ctx.fill();
+
+  // Delicate flour / toasted sheen on top
+  const topSheen = ctx.createLinearGradient(x, y, x, y + s * 0.35);
+  topSheen.addColorStop(0, "rgba(255, 255, 255, 0.42)");
+  topSheen.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+  ctx.fillStyle = topSheen;
+  ctx.fillRect(x, y, s, s * 0.35);
+
+  // 3. 4 Embossed Cracker Dock Holes (Fork pricks with highlight + shadow)
+  const dockHoles = [
+    { dx: 0.34, dy: 0.34 },
+    { dx: 0.66, dy: 0.34 },
+    { dx: 0.34, dy: 0.66 },
+    { dx: 0.66, dy: 0.66 },
+  ];
+  const holeR = Math.max(1.3, s * 0.045);
+
+  dockHoles.forEach((pos) => {
+    const hx = x + s * pos.dx;
+    const hy = y + s * pos.dy;
+
+    // Lower white highlight bevel
+    ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+    ctx.beginPath();
+    ctx.arc(hx, hy + 0.8, holeR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dark inset dock hole
+    ctx.fillStyle = "rgba(0, 0, 0, 0.48)";
+    ctx.beginPath();
+    ctx.arc(hx, hy, holeR, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.restore(); // end clip
+
+  // 4. Scallop perimeter stroke
+  ctx.strokeStyle = shade(color, -0.45);
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// 7. Authentic Carved Plaque Tile Base for Jewel Blocks (Screenshot 1)
 export function drawCarvedPlaqueBlock(
   ctx: CanvasRenderingContext2D,
   px: number,
