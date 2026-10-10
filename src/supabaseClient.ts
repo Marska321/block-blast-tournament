@@ -14,6 +14,7 @@ export interface SubmitScorePayload {
   phone?: string | null;
   country?: string;
   mode: "classic" | "blitz" | "levels";
+  tournamentId?: string;
   score: number;
   linesCleared: number;
   movesPlaced: number;
@@ -79,9 +80,10 @@ export async function submitTournamentScore(
 }
 
 // Fetch live global leaderboard
-export async function fetchLiveLeaderboard(mode: string = "classic") {
+export async function fetchLiveLeaderboard(mode: string = "classic", tournamentId?: string) {
   try {
-    const res = await fetch(`/api/leaderboard?mode=${mode}`);
+    const q = tournamentId ? `&tourney=${encodeURIComponent(tournamentId)}` : "";
+    const res = await fetch(`/api/leaderboard?mode=${mode}${q}`);
     if (res.ok) {
       return await res.json();
     }

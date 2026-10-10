@@ -778,8 +778,8 @@ function initTournamentGame(
   combo = 0;
   gameOver = false;
   activeBlock = null;
-
-  const session = sessionManager.startSession();
+  const activeTourneyId = tournamentConfigManager.getActiveTournamentId();
+  const session = sessionManager.startSession(undefined, activeTourneyId);
   rng = createRNG(session.seed);
   currentTournamentSeed = session.seed;
   currentTournamentToken = null;
@@ -948,6 +948,7 @@ function checkBoardGameOver(): boolean {
           const profile = authManager.getProfile();
           const playerId = profile?.id || "guest_player";
           const nickname = profile?.nickname || "Guest Player";
+          const activeTourneyId = tournamentConfigManager.getActiveTournamentId();
 
           submitTournamentScore({
             playerId,
@@ -955,6 +956,7 @@ function checkBoardGameOver(): boolean {
             phone: profile?.phone,
             country: profile?.country,
             mode: "classic",
+            tournamentId: activeTourneyId,
             score,
             linesCleared: totalLinesCleared,
             movesPlaced: totalMovesPlaced,

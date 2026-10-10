@@ -17,6 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     phone = null,
     country = "🇿🇦",
     mode = "classic",
+    tournamentId = "weekly_partner_cup",
     score = 0,
     linesCleared = 0,
     movesPlaced = 0,
@@ -71,6 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Insert score
       const { data, error } = await supabase.from("tournament_scores").insert({
+        tournament_id: tournamentId,
         player_id: playerId,
         nickname,
         country,
@@ -87,11 +89,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error("Supabase insert error:", error);
       }
 
-      // Calculate global rank for this score
+      // Calculate tournament-specific rank for this score
       const { count } = await supabase
         .from("tournament_scores")
         .select("id", { count: "exact", head: true })
-        .eq("mode", mode)
+        .eq("tournament_id", tournamentId)
         .gt("score", score);
 
       const rank = (count || 0) + 1;
@@ -101,6 +103,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         scoreId: data?.id || null,
         rank,
         verified: true,
+        tournamentId,
       });
     } catch (err) {
       console.error("Database connection error:", err);

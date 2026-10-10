@@ -9,6 +9,7 @@ export interface GameMove {
 
 export interface SessionData {
   sessionId: string;
+  tournamentId?: string;
   seed: number;
   moves: GameMove[];
   finalScore: number;
@@ -21,7 +22,7 @@ class TournamentSessionManager {
   private currentSession: SessionData | null = null;
   private gameStartTime: number = 0;
 
-  public startSession(customSeed?: number): SessionData {
+  public startSession(customSeed?: number, tournamentId?: string): SessionData {
     const seed =
       customSeed !== undefined
         ? customSeed
@@ -34,6 +35,7 @@ class TournamentSessionManager {
     this.gameStartTime = Date.now();
     this.currentSession = {
       sessionId,
+      tournamentId: tournamentId || "weekly_partner_cup",
       seed,
       moves: [],
       finalScore: 0,

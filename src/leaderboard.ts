@@ -1,6 +1,7 @@
 import { levelProgress } from "./levels";
 import { authManager } from "./auth";
 import { fetchLiveLeaderboard } from "./supabaseClient";
+import { tournamentConfigManager } from "./tournamentConfig";
 
 export interface LeaderboardEntry {
   rank: number;
@@ -118,7 +119,8 @@ class LeaderboardManager {
     if (this.isFetchingLive) return;
     this.isFetchingLive = true;
     try {
-      const data = await fetchLiveLeaderboard();
+      const activeTourneyId = tournamentConfigManager.getActiveTournamentId();
+      const data = await fetchLiveLeaderboard("classic", activeTourneyId);
       if (data && Array.isArray(data.tournament)) {
         this.liveTourneyList = data.tournament;
       }
@@ -358,9 +360,10 @@ export function renderLeaderboardHTML(playerScore: number): string {
     })
     .join("");
 
+  const conf = tournamentConfigManager.getConfig();
   return `
     <div class="leaderboard-preview">
-      <div class="lb-header">Weekly Tournament Top 5</div>
+      <div class="lb-header">${conf.sponsorName} ${conf.tournamentTitle} Top 5</div>
       <div class="lb-list">
         ${rows}
       </div>

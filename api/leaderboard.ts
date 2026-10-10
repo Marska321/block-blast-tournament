@@ -6,6 +6,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_S
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const mode = (req.query.mode as string) || "classic";
+  const tourneyId = (req.query.tourney as string) || (req.query.tournament_id as string) || "weekly_partner_cup";
 
   // Cache for 15 seconds on Vercel Edge CDN, stale-while-revalidate for 60s (zero redundant DB queries)
   res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate=60");
@@ -14,11 +15,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-      // Top tournament scores
+      // Top tournament scores specifically for this partner tournament
       const { data: scoresData, error: scoresError } = await supabase
         .from("tournament_scores")
         .select("nickname, score, country, created_at")
-        .eq("mode", mode)
+        .eq("tournament_id", tourneyId)
         .order("score", { ascending: false })
         .limit(20);
 

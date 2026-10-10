@@ -372,7 +372,38 @@ import('./src/levels.js').catch(async () => {
 
   console.log('✔ Tournament Deadlock Detection & Guaranteed Game Over Modal verified');
 
-  console.log('\nAll 18 verification tests passed successfully!');
+  console.log('19. Testing Multi-Partner Tournament Segregation & Routing (Phase 1)...');
+  // 1. Verify schema has tournaments table and tournament_id
+  const schemaRef = fs.readFileSync('supabase/schema.sql', 'utf8');
+  assert(schemaRef.includes('CREATE TABLE IF NOT EXISTS public.tournaments'), 'Schema must define public.tournaments');
+  assert(schemaRef.includes('tournament_id TEXT REFERENCES public.tournaments'), 'tournament_scores must reference tournament_id');
+  assert(schemaRef.includes('idx_scores_tourney_rank'), 'Index on (tournament_id, score DESC) must exist');
+
+  // 2. Verify api/submit-score.ts accepts and saves tournamentId
+  const submitRef = fs.readFileSync('api/submit-score.ts', 'utf8');
+  assert(submitRef.includes('tournamentId = "weekly_partner_cup"'), 'submit-score must accept tournamentId');
+  assert(submitRef.includes('tournament_id: tournamentId'), 'submit-score must write tournament_id to DB');
+  assert(submitRef.includes('.eq("tournament_id", tournamentId)'), 'submit-score must calculate rank per tournament');
+
+  // 3. Verify api/leaderboard.ts filters by tournament_id
+  const lbRef = fs.readFileSync('api/leaderboard.ts', 'utf8');
+  assert(lbRef.includes('.eq("tournament_id", tourneyId)'), 'leaderboard API must filter by tournament_id');
+
+  // 4. Verify src/tournamentConfig.ts registry & URL detection
+  const tourneyConfigRef = fs.readFileSync('src/tournamentConfig.ts', 'utf8');
+  assert(tourneyConfigRef.includes('DEFAULT_TOURNAMENTS_REGISTRY'), 'Must have DEFAULT_TOURNAMENTS_REGISTRY');
+  assert(tourneyConfigRef.includes('detectFromUrlParams'), 'Must detect partner tournament from URL parameters');
+  assert(tourneyConfigRef.includes('getActiveTournamentId'), 'Must expose getActiveTournamentId');
+  assert(tourneyConfigRef.includes('setActiveTournament'), 'Must expose setActiveTournament');
+
+  // 5. Verify src/preTourneyModal.ts has selector pills
+  const preModalRef = fs.readFileSync('src/preTourneyModal.ts', 'utf8');
+  assert(preModalRef.includes('tourneySelectorBar'), 'Pre-tourney modal must have tourneySelectorBar');
+  assert(preModalRef.includes('tourney-tab-pill'), 'Pre-tourney modal must render tourney-tab-pill');
+
+  console.log('✔ Multi-Partner Tournament Segregation & Routing verified');
+
+  console.log('\nAll 19 verification tests passed successfully!');
 });
 
 
