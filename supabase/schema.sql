@@ -53,11 +53,11 @@ CREATE TABLE IF NOT EXISTS public.tournament_scores (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Player Level Progress Table (Levels 1-20)
+-- 3. Player Level Progress Table (Levels 1-60)
 CREATE TABLE IF NOT EXISTS public.player_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   player_id TEXT REFERENCES public.players(id) ON DELETE CASCADE,
-  level INT NOT NULL CHECK (level >= 1 AND level <= 50),
+  level INT NOT NULL CHECK (level >= 1 AND level <= 100),
   stars INT NOT NULL CHECK (stars >= 0 AND stars <= 3),
   best_score INT DEFAULT 0,
   completed BOOLEAN DEFAULT TRUE,
