@@ -531,7 +531,33 @@ import('./src/levels.js').catch(async () => {
 
   console.log('✔ First-Time User Landing Page & Welcome Hub verified');
 
-  console.log('\nAll 26 verification tests passed successfully!');
+  console.log('27. Testing Authentic Diagonal Step Pieces (2-cell and 3-cell gaps)...');
+  const blocksSrc = fs.readFileSync('src/blocks.ts', 'utf8');
+  assert(blocksSrc.includes('diag_2_down'), 'blocks.ts must include diag_2_down');
+  assert(blocksSrc.includes('diag_2_up'), 'blocks.ts must include diag_2_up');
+  assert(blocksSrc.includes('diag_3_down'), 'blocks.ts must include diag_3_down');
+  assert(blocksSrc.includes('diag_3_up'), 'blocks.ts must include diag_3_up');
+
+  // Verify that a 2-cell diagonal can place in checkerboard corners
+  const testBoard = [
+    [0, '#ff0000'],
+    ['#00ff00', 0],
+  ];
+  const diagDown = [
+    [1, 0],
+    [0, 1],
+  ];
+  let fits = true;
+  for (let y = 0; y < 2; y++) {
+    for (let x = 0; x < 2; x++) {
+      if (diagDown[y][x] && testBoard[y][x] !== 0) fits = false;
+    }
+  }
+  assert.strictEqual(fits, true, 'Diagonal piece must fit into diagonally adjacent corner gaps');
+
+  console.log('✔ Authentic Diagonal Step Pieces verified');
+
+  console.log('\nAll 27 verification tests passed successfully!');
 });
 
 

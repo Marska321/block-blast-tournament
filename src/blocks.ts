@@ -29,7 +29,7 @@ export interface TrayBlock {
 }
 
 /**
- * Canonical 37 Block Blast shapes:
+ * Authentic Block Blast shapes (41 shapes total):
  * 1. Single block (1x1) - 1 shape
  * 2. Straight lines (2, 3, 4, 5 cells, H & V) - 8 shapes
  * 3. Small corners (3 cells, 2x2 with one cell missing) - 4 orientations
@@ -39,6 +39,7 @@ export interface TrayBlock {
  * 7. T piece (Tetris T) - 4 orientations
  * 8. S and Z pieces - 4 shapes (2 orientations each)
  * 9. Big corner (5 cells, L with both arms 3 long) - 4 orientations
+ * 10. Diagonals (2-cell and 3-cell step pieces) - 4 shapes
  */
 export const BLOCK_DEFS: PieceDef[] = [
   // ==========================================
@@ -360,6 +361,51 @@ export const BLOCK_DEFS: PieceDef[] = [
       [1, 1, 1],
       [0, 0, 1],
       [0, 0, 1],
+    ],
+    weight: 2.0,
+    tier: ShapeTier.FILLER,
+  },
+
+  // ==========================================
+  // 10. DIAGONAL PIECES (2-cell & 3-cell step stairs) - 4 shapes
+  // Fills diagonal checkerboard gaps where only corners touch
+  // ==========================================
+  // 2-cell diagonals (2x2 bounding box)
+  {
+    name: "diag_2_down",
+    shape: [
+      [1, 0],
+      [0, 1],
+    ],
+    weight: 2.5,
+    tier: ShapeTier.HELPER,
+  },
+  {
+    name: "diag_2_up",
+    shape: [
+      [0, 1],
+      [1, 0],
+    ],
+    weight: 2.5,
+    tier: ShapeTier.HELPER,
+  },
+  // 3-cell diagonals (3x3 bounding box)
+  {
+    name: "diag_3_down",
+    shape: [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ],
+    weight: 2.0,
+    tier: ShapeTier.FILLER,
+  },
+  {
+    name: "diag_3_up",
+    shape: [
+      [0, 0, 1],
+      [0, 1, 0],
+      [1, 0, 0],
     ],
     weight: 2.0,
     tier: ShapeTier.FILLER,
