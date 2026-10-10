@@ -588,6 +588,7 @@ function initLevelGame(
   hideLevelSelect();
   hidePreTourneyModal();
   hideTourneyRulesModal();
+  hideGameOverToast();
 
   if (!isResume) {
     clearActiveGameSession();
@@ -686,6 +687,7 @@ function initClassicGame(isResume: boolean = false) {
   hideLevelSelect();
   hidePreTourneyModal();
   hideTourneyRulesModal();
+  hideGameOverToast();
 
   if (!isResume) {
     clearActiveGameSession();
@@ -763,6 +765,7 @@ function initTournamentGame(
   hideLevelSelect();
   hidePreTourneyModal();
   hideTourneyRulesModal();
+  hideGameOverToast();
 
   if (!isResume) {
     clearActiveGameSession();
@@ -883,6 +886,7 @@ function getCanvasCoords(clientX: number, clientY: number): { x: number; y: numb
 }
 
 let toastEl: HTMLElement | null = null;
+let toastTimer: any = null;
 function showGameOverToast(message: string) {
   if (!toastEl) {
     toastEl = document.createElement("div");
@@ -891,11 +895,21 @@ function showGameOverToast(message: string) {
     const container = document.getElementById("game-container") || document.body;
     container.appendChild(toastEl);
   }
+  if (toastTimer) clearTimeout(toastTimer);
   toastEl.textContent = message;
   toastEl.classList.add("show");
-  setTimeout(() => {
+  toastTimer = setTimeout(() => {
     toastEl?.classList.remove("show");
-  }, 3200);
+    toastTimer = null;
+  }, 2600);
+}
+
+function hideGameOverToast() {
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+  toastEl?.classList.remove("show");
 }
 
 function checkBoardGameOver(): boolean {
@@ -907,16 +921,8 @@ function checkBoardGameOver(): boolean {
     clearActiveGameSession();
     soundManager.playGameOver();
 
-    // Instant on-screen DOM toast + canvas milestone so player immediately knows no space remains
+    // Clean, unified DOM toast banner so player immediately knows why the run ended
     showGameOverToast("🚫 NO SPACE FOR BRICKS — OUT OF MOVES!");
-    const centerBoardX = layout.boardX + layout.boardSize / 2;
-    const centerBoardY = layout.boardY + layout.boardSize / 2;
-    floatingTexts.spawnMilestone(
-      "🏁 GAME OVER — NO SPACE FOR BRICKS",
-      "No moves left on the board!",
-      centerBoardX,
-      centerBoardY
-    );
 
     if (currentMode.id === GameModeId.LEVELS && currentLevelConfig) {
       const currentLvl = currentLevelConfig.level;

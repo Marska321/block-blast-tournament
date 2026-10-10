@@ -363,9 +363,9 @@ import('./src/levels.js').catch(async () => {
   assert(modalSrc.includes('document.querySelectorAll(".modal-overlay.active")'), 'showModal must dismiss competing active modals');
   assert(modalSrc.includes('modalEl.classList.add("active")'), 'showModal must add active class to modal');
 
-  // Verify script.ts has instant milestone on game over and window pointer listeners
+  // Verify script.ts has unified high-visibility notification on game over and window pointer listeners
   const scriptSrc = fs.readFileSync('src/script.ts', 'utf8');
-  assert(scriptSrc.includes('🏁 GAME OVER'), 'checkBoardGameOver must spawn instant GAME OVER milestone');
+  assert(scriptSrc.includes('showGameOverToast'), 'checkBoardGameOver must display single unified game over banner');
   assert(scriptSrc.includes('window.addEventListener("pointerup"'), 'Pointerup must be attached to window for touch reliability');
   assert(scriptSrc.includes('window.addEventListener("pointercancel"'), 'Pointercancel must be attached to window for gesture reliability');
   assert(scriptSrc.includes('drawTray(ctx, availableBlocks, layout, undefined, isPaperTheme, GAME_GRID)'), 'drawTray must receive GAME_GRID for piece dimming');
