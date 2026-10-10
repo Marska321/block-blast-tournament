@@ -2243,5 +2243,122 @@ body.theme-paper .tourney-bar-sub {
   box-shadow: 0 0 10px rgba(139, 92, 246, 0.35);
 }
 
+/* ============================================================
+   TOURNAMENT RULES & TERMS MODAL (Option A)
+   ============================================================ */
+.tourney-terms-hint {
+  margin-top: 10px;
+  font-size: 0.72rem;
+  color: #8c96b5;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.tourney-terms-link {
+  background: none;
+  border: none;
+  color: #ffd700;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  display: inline;
+  transition: color 0.15s ease;
+}
+
+.tourney-terms-link:hover {
+  color: #fff;
+}
+
+.rules-modal-overlay {
+  z-index: 260;
+}
+
+.rules-modal-card {
+  width: min(92vw, 420px);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 18px 18px 18px;
+  text-align: left;
+}
+
+.rules-badge {
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  color: #ffd700;
+  align-self: center;
+}
+
+.rules-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.rules-subtitle {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.rules-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+  margin-bottom: 14px;
+}
+
+.rules-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.rules-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.rules-text strong {
+  display: block;
+  font-size: 0.82rem;
+  color: #f1f5f9;
+  margin-bottom: 3px;
+}
+
+.rules-text p {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  line-height: 1.42;
+  margin: 0;
+}
+
+.rules-agree-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  font-weight: 800;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  width: 100%;
+}
+
+
 
 

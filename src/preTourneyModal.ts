@@ -1,4 +1,5 @@
 import { tournamentConfigManager } from "./tournamentConfig";
+import { showTourneyRulesModal } from "./tourneyRulesModal";
 
 export interface PreTourneyModalOptions {
   chancesRemaining: number;
@@ -68,11 +69,23 @@ export function createPreTourneyModal() {
         <button id="preTourneyInviteBtn" class="modal-button share-invite-btn" style="display: none;">
           📲 Invite Friend on WhatsApp (+1 Bonus Ticket When They Play)
         </button>
+
+        <!-- Terms and Rules Link -->
+        <div class="tourney-terms-hint">
+          <span>Skill-based promotion. By playing, you accept the </span>
+          <button id="viewTourneyRulesBtn" class="tourney-terms-link" type="button">Official Rules & Terms ↗</button>
+        </div>
       </div>
     </div>
   `;
 
   document.body.appendChild(modalEl);
+
+  document.getElementById("viewTourneyRulesBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showTourneyRulesModal();
+  });
 }
 
 export function showPreTourneyModal(options: PreTourneyModalOptions) {

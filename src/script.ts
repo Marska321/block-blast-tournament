@@ -47,6 +47,7 @@ import {
 } from "./levelModal";
 import { leaderboardManager } from "./leaderboard";
 import { showPreTourneyModal, hidePreTourneyModal } from "./preTourneyModal";
+import { hideTourneyRulesModal } from "./tourneyRulesModal";
 import { authManager } from "./auth";
 import {
   requestTournamentSessionToken,
@@ -573,6 +574,7 @@ function initLevelGame(
   hideLevelModal();
   hideLevelSelect();
   hidePreTourneyModal();
+  hideTourneyRulesModal();
 
   if (!isResume) {
     clearActiveGameSession();
@@ -669,6 +671,7 @@ function initClassicGame(isResume: boolean = false) {
   hideLevelModal();
   hideLevelSelect();
   hidePreTourneyModal();
+  hideTourneyRulesModal();
 
   if (!isResume) {
     clearActiveGameSession();
@@ -744,6 +747,7 @@ function initTournamentGame(
   hideLevelModal();
   hideLevelSelect();
   hidePreTourneyModal();
+  hideTourneyRulesModal();
 
   if (!isResume) {
     clearActiveGameSession();

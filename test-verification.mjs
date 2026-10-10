@@ -403,7 +403,21 @@ import('./src/levels.js').catch(async () => {
 
   console.log('✔ Multi-Partner Tournament Segregation & Routing verified');
 
-  console.log('\nAll 19 verification tests passed successfully!');
+  console.log('20. Testing Tournament Rules & Terms and Conditions (Option A)...');
+  const rulesModalSrc = fs.readFileSync('src/tourneyRulesModal.ts', 'utf8');
+  assert(rulesModalSrc.includes('Skill-Based Contest (Not Gambling)'), 'Rules must state skill-based contest / not gambling');
+  assert(rulesModalSrc.includes('Players under 18'), 'Rules must state parental consent policy under 18 for prize receipt');
+  assert(rulesModalSrc.includes('48 hours'), 'Rules must state 48-hour claim window');
+  assert(rulesModalSrc.includes('earlier server timestamp'), 'Rules must state tie-breaker rule');
+  assert(rulesModalSrc.includes('Anti-Cheat & Fair Play Policy'), 'Rules must state anti-cheat & fair play policy');
+
+  // Verify pre-tournament modal includes terms link and opens modal
+  assert(preModalRef.includes('viewTourneyRulesBtn'), 'Pre-tournament modal must have viewTourneyRulesBtn');
+  assert(preModalRef.includes('showTourneyRulesModal'), 'Pre-tournament modal must trigger showTourneyRulesModal');
+
+  console.log('✔ Tournament Rules & Terms and Conditions verified');
+
+  console.log('\nAll 20 verification tests passed successfully!');
 });
 
 
