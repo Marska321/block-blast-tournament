@@ -2,6 +2,7 @@ import { estimateRank, renderLeaderboardHTML } from "./leaderboard";
 import { authManager } from "./auth";
 import { chancesManager } from "./chances";
 import { tournamentConfigManager } from "./tournamentConfig";
+import { getVerifiedBadgeHtml } from "./verifiedBadge";
 
 export interface PerformanceStats {
   efficiencyGrade: string;
@@ -67,9 +68,22 @@ export function createGameOverModal({
 
       <div id="modalLeaderboardContainer"></div>
 
+      <!-- Verified Competitor Card (Rendered when already registered) -->
+      <div id="modalVerifiedStatusCard" class="verified-status-card" style="display: none;">
+        <div class="verified-card-header">
+          <span class="verified-pill">
+            ${getVerifiedBadgeHtml()} VERIFIED COMPETITOR
+          </span>
+          <span id="modalVerifiedPlayerName" class="verified-player-name">Player</span>
+        </div>
+        <p class="verified-card-sub">
+          Official prize entry recorded! All your scores automatically sync to the leaderboard — zero WhatsApp prompts needed.
+        </p>
+      </div>
+
       <!-- Action Buttons -->
       <button class="modal-button whatsapp-btn" id="claimSpotBtn">
-        💬 Claim Your Prize Spot with WhatsApp
+        💬 Register on WhatsApp to Verify & Claim Prizes
       </button>
 
       <button class="modal-button share-invite-btn" id="inviteFriendsBtn" style="display: none;">
@@ -84,6 +98,10 @@ export function createGameOverModal({
           🎯 Play Classic (Free)
         </button>
       </div>
+
+      <button id="modalSupportLink" class="verified-support-link" type="button" style="display: none;">
+        Need help or have questions? Contact Tournament WhatsApp Support ↗
+      </button>
     </div>
   `;
 
@@ -122,6 +140,9 @@ export function createGameOverModal({
       );
       const waUrl = `https://wa.me/?text=${message}`;
 
+      // Mark player as verified with badge!
+      authManager.setWhatsAppVerified(true);
+
       const win = window.open(waUrl, "_blank");
       if (!win || win.closed || typeof win.closed === "undefined") {
         window.location.href = waUrl;
@@ -129,6 +150,19 @@ export function createGameOverModal({
     } catch (e) {
       console.warn("WhatsApp open fallback:", e);
       window.location.href = "https://wa.me/";
+    }
+  });
+
+  document.getElementById("modalSupportLink")?.addEventListener("click", () => {
+    const profile = authManager.getProfile();
+    const conf = tournamentConfigManager.getConfig();
+    const msg = encodeURIComponent(
+      `Hi! I'm verified player ${profile.nickname} (ID: ${profile.id}) playing the ${conf.sponsorName} ${conf.tournamentTitle}. I have a question about prizes:`
+    );
+    const waUrl = `https://wa.me/?text=${msg}`;
+    const win = window.open(waUrl, "_blank");
+    if (!win || win.closed || typeof win.closed === "undefined") {
+      window.location.href = waUrl;
     }
   });
 }
@@ -149,7 +183,6 @@ export function showModal(
       onGoToClassic: savedClassicCb || (() => window.location.reload()),
     });
   }
-
   if (!modalEl) return;
 
   // Clear any existing active modals so Game Over is guaranteed visible
@@ -241,6 +274,24 @@ export function showModal(
     const inviteFriendsBtn = document.getElementById("inviteFriendsBtn");
     const claimBtn = document.getElementById("claimSpotBtn");
     const restartBtn = document.getElementById("restartBtn");
+    const isVerified = authManager.isWhatsAppVerified();
+    const verifiedCard = document.getElementById("modalVerifiedStatusCard");
+    const verifiedPlayerName = document.getElementById("modalVerifiedPlayerName");
+    const supportLink = document.getElementById("modalSupportLink");
+
+    if (verifiedCard && verifiedPlayerName) {
+      if (!isClassic && isVerified) {
+        verifiedCard.style.display = "block";
+        const profile = authManager.getProfile();
+        verifiedPlayerName.innerHTML = `${profile.nickname} ${getVerifiedBadgeHtml()}`;
+      } else {
+        verifiedCard.style.display = "none";
+      }
+    }
+
+    if (supportLink) {
+      supportLink.style.display = (!isClassic && isVerified) ? "inline-block" : "none";
+    }
 
     if (chancesLabel) {
       if (isClassic) {
@@ -265,9 +316,10 @@ export function showModal(
     }
 
     if (claimBtn) {
-      claimBtn.style.display = isClassic ? "none" : "flex";
+      // Only show registration button if player is NOT verified yet!
+      claimBtn.style.display = (!isClassic && !isVerified) ? "flex" : "none";
       claimBtn.removeAttribute("disabled");
-      claimBtn.textContent = "💬 Claim Your Prize Spot with WhatsApp";
+      claimBtn.textContent = "💬 Register on WhatsApp to Verify & Claim";
     }
 
     const lbContainer = document.getElementById("modalLeaderboardContainer");

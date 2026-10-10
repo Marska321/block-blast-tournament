@@ -496,8 +496,14 @@ function updateHUDChances() {
 
   if (hudStakesTagEl) {
     hudStakesTagEl.style.display = "inline-block";
-    hudStakesTagEl.textContent = "OFFICIAL RUN";
-    hudStakesTagEl.className = "hud-stakes-tag official";
+    const isVerified = authManager.isWhatsAppVerified();
+    if (isVerified) {
+      hudStakesTagEl.textContent = "VERIFIED PRO ✓";
+      hudStakesTagEl.className = "hud-stakes-tag verified";
+    } else {
+      hudStakesTagEl.textContent = "OFFICIAL RUN";
+      hudStakesTagEl.className = "hud-stakes-tag official";
+    }
   }
 
   if (hudScoreBoxEl) {

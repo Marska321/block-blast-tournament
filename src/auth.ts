@@ -6,10 +6,12 @@ export interface PlayerProfile {
   nickname: string;
   phone?: string | null;
   country: string;
+  verified?: boolean;
 }
 
 class AuthManager {
   private userKey = "bbt_user_whatsapp";
+  private verifiedKey = "bbt_user_whatsapp_verified";
   private playerIdKey = "bbt_player_uuid";
   private nicknameKey = "bbt_player_nickname";
   private modalEl: HTMLElement | null = null;
@@ -26,6 +28,7 @@ class AuthManager {
   public getProfile(): PlayerProfile {
     const id = this.getPlayerId();
     const phone = this.getUser();
+    const isVerified = this.isWhatsAppVerified();
     const savedNick = localStorage.getItem(this.nicknameKey);
     const nickname = savedNick || (phone ? `Player-${phone.slice(-4)}` : `Player-${id.slice(-4)}`);
     return {
@@ -33,6 +36,7 @@ class AuthManager {
       nickname,
       phone: phone || null,
       country: "🇿🇦",
+      verified: isVerified,
     };
   }
 
@@ -44,8 +48,24 @@ class AuthManager {
     return localStorage.getItem(this.userKey);
   }
 
+  public isWhatsAppVerified(): boolean {
+    return localStorage.getItem(this.verifiedKey) === "true" || !!this.getUser();
+  }
+
+  public setWhatsAppVerified(val: boolean = true) {
+    if (val) {
+      localStorage.setItem(this.verifiedKey, "true");
+      if (!this.getUser()) {
+        const id = this.getPlayerId();
+        localStorage.setItem(this.userKey, `Verified-${id.slice(-4)}`);
+      }
+    } else {
+      localStorage.removeItem(this.verifiedKey);
+    }
+  }
+
   public isLoggedIn(): boolean {
-    return !!this.getUser();
+    return this.isWhatsAppVerified();
   }
 
   public initAuthModal(onSuccess: (whatsappPhone: string, rank: number) => void) {

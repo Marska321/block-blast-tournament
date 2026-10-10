@@ -2,6 +2,7 @@ import { levelProgress } from "./levels";
 import { authManager } from "./auth";
 import { fetchLiveLeaderboard } from "./supabaseClient";
 import { tournamentConfigManager } from "./tournamentConfig";
+import { getVerifiedBadgeHtml } from "./verifiedBadge";
 
 export interface LeaderboardEntry {
   rank: number;
@@ -201,6 +202,7 @@ class LeaderboardManager {
       });
     }
 
+    const isUserVerified = authManager.isWhatsAppVerified();
     const tourneyRowsHTML = tourneyList
       .slice(0, 10)
       .map((item) => {
@@ -209,12 +211,15 @@ class LeaderboardManager {
         else if (item.rank === 2) medal = "🥈 2";
         else if (item.rank === 3) medal = "🥉 3";
 
+        const showBadge = (item.isPlayer && isUserVerified) || (!item.isPlayer && item.rank <= 5);
+        const badgeHtml = showBadge ? getVerifiedBadgeHtml(item.rank === 1) : "";
+
         return `
         <div class="lb-table-row ${item.isPlayer ? "player-highlight" : ""} ${item.rank <= 3 ? "top-three" : ""}">
           <span class="lb-col-rank">${medal}</span>
           <span class="lb-col-name">
             <span class="country-flag">${item.country || "🌐"}</span>
-            <span class="player-label">${item.name}</span>
+            <span class="player-label">${item.name} ${badgeHtml}</span>
           </span>
           <span class="lb-col-score">${item.score.toLocaleString()} pts</span>
         </div>
@@ -347,13 +352,16 @@ export function estimateRank(score: number): number {
 
 export function renderLeaderboardHTML(playerScore: number): string {
   const rank = leaderboardManager.getPlayerRank(playerScore);
+  const isUserVerified = authManager.isWhatsAppVerified();
   const rows = BASE_TOURNAMENT_LEADERBOARD.slice(0, 5)
     .map((item) => {
       const isCurrentRank = rank === item.rank;
+      const showBadge = (isCurrentRank && isUserVerified) || (!isCurrentRank && item.rank <= 3);
+      const badgeHtml = showBadge ? getVerifiedBadgeHtml(item.rank === 1) : "";
       return `
       <div class="lb-row ${item.rank === 1 ? "gold" : ""} ${isCurrentRank ? "player-rank" : ""}">
         <span class="lb-rank">#${item.rank}</span>
-        <span class="lb-name">${item.name} ${isCurrentRank ? "(YOU)" : ""}</span>
+        <span class="lb-name">${item.name} ${isCurrentRank ? "(YOU)" : ""} ${badgeHtml}</span>
         <span class="lb-score">${item.score.toLocaleString()}</span>
       </div>
     `;

@@ -1661,6 +1661,14 @@ body.theme-paper .perf-stats-row strong {
   box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
 }
 
+.hud-stakes-tag.verified {
+  display: inline-block;
+  background: rgba(0, 186, 124, 0.2);
+  color: #00ba7c;
+  border: 1px solid rgba(0, 186, 124, 0.5);
+  box-shadow: 0 0 8px rgba(0, 186, 124, 0.3);
+}
+
 .hud-stakes-tag.practice {
   display: inline-block;
   background: rgba(30, 144, 255, 0.18);
@@ -2401,6 +2409,81 @@ body.theme-paper .tourney-bar-sub {
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
   width: 100%;
+}
+
+/* ============================================================
+   VERIFIED BADGE & STATUS CARD (Similar to X, FB, IG)
+   ============================================================ */
+.verified-tick-icon {
+  display: inline-block;
+  vertical-align: -2px;
+  filter: drop-shadow(0 0 4px rgba(0, 186, 124, 0.4));
+  margin-left: 3px;
+}
+
+.verified-tick-icon.gold {
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.5));
+}
+
+.verified-status-card {
+  background: linear-gradient(135deg, rgba(0, 186, 124, 0.12), rgba(0, 229, 255, 0.08));
+  border: 1px solid rgba(0, 186, 124, 0.35);
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  text-align: left;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.verified-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.verified-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: #00ba7c;
+  background: rgba(0, 186, 124, 0.18);
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 186, 124, 0.4);
+}
+
+.verified-player-name {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+
+.verified-card-sub {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.verified-support-link {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 0.7rem;
+  margin-top: 8px;
+  cursor: pointer;
+  text-decoration: underline;
+  display: inline-block;
+  padding: 2px 4px;
+  transition: color 0.15s ease;
+}
+
+.verified-support-link:hover {
+  color: #94a3b8;
 }
 
 

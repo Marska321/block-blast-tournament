@@ -433,7 +433,25 @@ import('./src/levels.js').catch(async () => {
 
   console.log('✔ No Space For Bricks Notification & Direct WhatsApp Registration verified');
 
-  console.log('\nAll 21 verification tests passed successfully!');
+  console.log('22. Testing Social Verified Badge System & Streamlined Registration...');
+  const verifiedBadgeSrc = fs.readFileSync('src/verifiedBadge.ts', 'utf8');
+  assert(verifiedBadgeSrc.includes('verified-tick-icon'), 'verifiedBadge.ts must export verified-tick-icon SVG');
+  assert(verifiedBadgeSrc.includes('getVerifiedBadgeHtml'), 'verifiedBadge.ts must export getVerifiedBadgeHtml');
+
+  assert(authContent.includes('isWhatsAppVerified'), 'auth.ts must have isWhatsAppVerified');
+  assert(authContent.includes('setWhatsAppVerified'), 'auth.ts must have setWhatsAppVerified');
+
+  assert(modalContent.includes('modalVerifiedStatusCard'), 'modal.ts must have modalVerifiedStatusCard');
+  assert(modalContent.includes('authManager.setWhatsAppVerified(true)'), 'modal.ts must mark player verified when claiming via WhatsApp');
+
+  const lbSrc = fs.readFileSync('src/leaderboard.ts', 'utf8');
+  assert(lbSrc.includes('getVerifiedBadgeHtml'), 'leaderboard.ts must render verified badges');
+
+  assert(scriptContent.includes('VERIFIED PRO ✓'), 'script.ts must show VERIFIED PRO in HUD');
+
+  console.log('✔ Social Verified Badge System & Streamlined Registration verified');
+
+  console.log('\nAll 22 verification tests passed successfully!');
 });
 
 
