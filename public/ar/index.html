@@ -6,6 +6,16 @@
     <meta name="theme-color" content="#080911" />
     <title>AR Combo Rush | Block Blast Tournament</title>
 
+    <!-- Optional Mobile Debug Console (activate with ?debug=true in URL) -->
+    <script>
+      if (new URLSearchParams(window.location.search).has('debug')) {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/eruda';
+        s.onload = () => window.eruda && window.eruda.init();
+        document.head.appendChild(s);
+      }
+    </script>
+
     <!-- A-Frame & MindAR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -15,11 +25,10 @@
     <style>
       :root {
         --bg-dark: #080911;
-        --card-bg: rgba(14, 17, 27, 0.92);
+        --card-bg: rgba(14, 17, 27, 0.95);
         --gold: #f59e0b;
         --gold-glow: rgba(245, 158, 11, 0.5);
         --cyan: #38bdf8;
-        --cyan-glow: rgba(56, 189, 248, 0.4);
         --green: #10b981;
       }
 
@@ -33,174 +42,21 @@
         user-select: none;
       }
 
-      /* Top Tournament Status Pill */
-      #hud-pill {
-        position: absolute;
-        top: 24px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: var(--card-bg);
-        border: 1px solid rgba(245, 158, 11, 0.35);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        padding: 8px 18px;
-        border-radius: 999px;
-        font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        color: #e2e8f0;
-        z-index: 100;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-        pointer-events: none;
-        transition: all 0.3s ease;
-      }
-
-      .pulse-dot {
-        width: 8px;
-        height: 8px;
-        background: var(--gold);
-        border-radius: 50%;
-        box-shadow: 0 0 8px var(--gold);
-        animation: blink 1.2s infinite;
-      }
-
-      @keyframes blink {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.4; transform: scale(0.8); }
-      }
-
-      /* 1-Tap Prompt Bar */
-      #tap-prompt {
-        display: none;
-        position: absolute;
-        bottom: 85px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: linear-gradient(135deg, #f59e0b, #d97706);
-        color: #080911;
-        font-weight: 900;
-        font-size: 15px;
-        letter-spacing: 0.5px;
-        padding: 14px 28px;
-        border-radius: 999px;
-        box-shadow: 0 0 25px var(--gold-glow);
-        z-index: 150;
-        pointer-events: none;
-        animation: floatPulse 1.2s infinite alternate ease-in-out;
-        white-space: nowrap;
-      }
-
-      @keyframes floatPulse {
-        0% { transform: translateX(-50%) translateY(0) scale(0.97); }
-        100% { transform: translateX(-50%) translateY(-6px) scale(1.03); }
-      }
-
-      /* Fullscreen tap catcher */
-      #touch-overlay {
-        position: absolute;
-        top: 0; left: 0; width: 100%; height: 100%;
-        z-index: 140;
-        display: none;
-        cursor: pointer;
-      }
-
-      /* Victory / Tournament Claim Modal */
-      #tourney-modal {
-        display: none;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: var(--card-bg);
-        border: 1px solid rgba(245, 158, 11, 0.5);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        padding: 28px 24px;
-        border-radius: 20px;
-        text-align: center;
-        width: 86%;
-        max-width: 340px;
-        z-index: 200;
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(245, 158, 11, 0.2);
-        animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      }
-
-      @keyframes modalPop {
-        0% { transform: translate(-50%, -45%) scale(0.85); opacity: 0; }
-        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-      }
-
-      .crown-title {
-        font-size: 36px;
-        margin-bottom: 2px;
-      }
-
-      .combo-headline {
-        font-size: 26px;
-        font-weight: 900;
-        color: #fff;
-        margin: 0;
-        letter-spacing: 0.5px;
-      }
-
-      .points-pill {
-        display: inline-block;
-        background: rgba(16, 185, 129, 0.15);
-        border: 1px solid rgba(16, 185, 129, 0.4);
-        color: var(--green);
-        font-weight: 800;
-        font-size: 16px;
-        padding: 4px 14px;
-        border-radius: 999px;
-        margin: 12px 0;
-      }
-
-      .perk-desc {
-        color: #94a3b8;
-        font-size: 13px;
-        line-height: 1.5;
-        margin: 0 0 20px 0;
-      }
-
-      .claim-btn {
-        background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
-        color: #080911;
-        border: none;
-        padding: 15px 24px;
-        font-size: 15px;
-        font-weight: 900;
-        letter-spacing: 0.5px;
-        border-radius: 12px;
-        cursor: pointer;
-        width: 100%;
-        box-shadow: 0 8px 20px var(--gold-glow);
-        transition: transform 0.1s ease;
-      }
-      .claim-btn:active { transform: scale(0.97); }
-
-      /* Suppress MindAR built-in overlay spinners and broken default icons */
-      .mindar-ui-overlay {
-        display: none !important;
-      }
-      .mindar-ui-loading {
-        display: none !important;
-      }
-      .mindar-ui-scanning {
-        display: none !important;
-      }
-      .a-loader-title, .a-enter-vr {
+      /* Suppress MindAR built-in overlay spinners and broken icons */
+      .mindar-ui-overlay,
+      .mindar-ui-loading,
+      .mindar-ui-scanning,
+      .a-loader-title,
+      .a-enter-vr {
         display: none !important;
       }
 
-      /* Start Overlay / Camera Permission Gate */
-      #start-overlay {
+      /* Initial Start Gate: Unlocks mobile camera permissions cleanly */
+      #start-screen {
         position: fixed;
         inset: 0;
         background: radial-gradient(circle at 50% 30%, #151a2d 0%, #080911 100%);
-        z-index: 9999;
+        z-index: 1000;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -210,7 +66,7 @@
       }
 
       .start-card {
-        background: rgba(14, 17, 27, 0.85);
+        background: rgba(14, 17, 27, 0.88);
         border: 1px solid rgba(245, 158, 11, 0.35);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
@@ -238,34 +94,30 @@
       .start-title {
         font-size: 24px;
         font-weight: 900;
-        margin: 0 0 10px 0;
+        margin: 0 0 8px 0;
         color: #fff;
         letter-spacing: 0.5px;
       }
 
-      .start-desc {
-        color: #94a3b8;
+      .start-sub {
         font-size: 14px;
+        color: #94a3b8;
         line-height: 1.5;
         margin: 0 0 24px 0;
       }
 
       .start-btn {
-        background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         color: #080911;
         border: none;
-        padding: 16px 24px;
+        padding: 16px 28px;
         font-size: 16px;
         font-weight: 900;
         border-radius: 14px;
         cursor: pointer;
         width: 100%;
-        box-shadow: 0 8px 24px var(--gold-glow);
-        transition: transform 0.1s ease, filter 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
+        box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+        transition: transform 0.1s ease;
       }
       .start-btn:active { transform: scale(0.97); }
 
@@ -276,19 +128,17 @@
         inset: 0;
         pointer-events: none;
         z-index: 120;
-        display: none;
         flex-direction: column;
         align-items: center;
         justify-content: center;
       }
 
       .reticle-box {
-        width: 260px;
-        height: 140px;
+        width: 270px;
+        height: 130px;
         border: 2px dashed rgba(245, 158, 11, 0.7);
         border-radius: 18px;
         box-shadow: 0 0 30px rgba(245, 158, 11, 0.2), inset 0 0 20px rgba(245, 158, 11, 0.1);
-        position: relative;
         animation: reticlePulse 2s infinite ease-in-out;
       }
 
@@ -298,7 +148,7 @@
       }
 
       .reticle-label {
-        margin-top: 16px;
+        margin-top: 14px;
         background: rgba(8, 9, 17, 0.85);
         border: 1px solid rgba(255, 255, 255, 0.15);
         backdrop-filter: blur(8px);
@@ -307,34 +157,139 @@
         font-size: 12px;
         font-weight: 700;
         color: #e2e8f0;
-        letter-spacing: 0.5px;
       }
 
-      /* Manual Skip / Force Unlock button if lighting/camera prevents pattern lock */
+      /* Top HUD Notification */
+      #hud-pill {
+        display: none;
+        position: absolute;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--card-bg);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        padding: 8px 18px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #e2e8f0;
+        z-index: 100;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+      }
+
+      .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background: var(--gold);
+        border-radius: 50%;
+        box-shadow: 0 0 8px var(--gold);
+        animation: blink 1.2s infinite;
+      }
+
+      @keyframes blink {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.8); }
+      }
+
+      /* 1-Tap Tap Prompt */
+      #tap-prompt {
+        display: none;
+        position: absolute;
+        bottom: 85px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: #080911;
+        font-weight: 900;
+        font-size: 15px;
+        letter-spacing: 0.5px;
+        padding: 14px 28px;
+        border-radius: 999px;
+        box-shadow: 0 0 25px var(--gold-glow);
+        z-index: 150;
+        pointer-events: none;
+        animation: floatPulse 1.2s infinite alternate ease-in-out;
+        white-space: nowrap;
+      }
+
+      @keyframes floatPulse {
+        0% { transform: translateX(-50%) translateY(0) scale(0.97); }
+        100% { transform: translateX(-50%) translateY(-6px) scale(1.03); }
+      }
+
+      #touch-overlay {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 140;
+        display: none;
+        cursor: pointer;
+      }
+
+      /* Fallback Instant Trigger if lighting or key layout hinders recognition */
       #fallback-trigger {
         display: none;
         position: fixed;
         bottom: 24px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(14, 17, 27, 0.88);
-        border: 1px solid rgba(255, 255, 255, 0.25);
-        color: #94a3b8;
+        background: rgba(14, 17, 27, 0.9);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        color: #e2e8f0;
         font-size: 12px;
-        font-weight: 700;
-        padding: 8px 18px;
+        font-weight: 800;
+        padding: 9px 20px;
         border-radius: 999px;
         cursor: pointer;
         z-index: 160;
         backdrop-filter: blur(10px);
-        transition: all 0.2s ease;
+        white-space: nowrap;
       }
       #fallback-trigger:active {
         color: #fff;
         border-color: var(--gold);
       }
 
-      /* Camera Error / Permission Banner */
+      /* Tournament Reward Modal */
+      #tourney-modal {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: var(--card-bg);
+        border: 1px solid rgba(245, 158, 11, 0.5);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        padding: 28px 24px;
+        border-radius: 20px;
+        text-align: center;
+        width: 86%;
+        max-width: 340px;
+        z-index: 200;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(245, 158, 11, 0.2);
+      }
+
+      .claim-btn {
+        background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
+        color: #080911;
+        border: none;
+        padding: 15px 24px;
+        font-size: 15px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+        border-radius: 12px;
+        cursor: pointer;
+        width: 100%;
+        margin-top: 15px;
+        box-shadow: 0 8px 20px var(--gold-glow);
+      }
+
+      /* Error Modal */
       #error-modal {
         display: none;
         position: fixed;
@@ -360,23 +315,18 @@
     </style>
   </head>
   <body>
-    <!-- Pre-launch Camera Start Screen -->
-    <div id="start-overlay">
+    <!-- Start Screen: Unlocks camera cleanly on mobile -->
+    <div id="start-screen">
       <div class="start-card">
         <div class="start-badge">DESK AR EXPERIENCE</div>
         <div style="font-size: 42px; margin-bottom: 12px;">📱✨</div>
         <h1 class="start-title">AR COMBO RUSH</h1>
-        <p class="start-desc">
-          Point your phone camera at your keyboard's spacebar area to unlock a 3D board combo & tournament perks!
-        </p>
-        <button class="start-btn" id="start-btn">
-          <span>START AR CAMERA</span>
-          <span style="font-size: 18px;">⚡</span>
-        </button>
+        <p class="start-sub">Point your camera at your keyboard's spacebar to unlock 3D combos & bonus points.</p>
+        <button class="start-btn" id="start-btn">START AR CAMERA ⚡</button>
       </div>
     </div>
 
-    <!-- Error notice if camera permissions are blocked -->
+    <!-- Error Alert Modal -->
     <div id="error-modal">
       <h3>Camera Access Required</h3>
       <p id="error-msg">Please allow camera permissions in your mobile browser settings to play the AR experience.</p>
@@ -389,37 +339,33 @@
       <div class="reticle-label">FRAME KEYBOARD SPACEBAR HERE</div>
     </div>
 
-    <!-- Top HUD Notification -->
+    <!-- HUD Notification -->
     <div id="hud-pill">
       <span class="pulse-dot"></span>
       <span id="hud-text">POINT AT KEYBOARD SPACEBAR</span>
     </div>
 
-    <!-- Fallback Manual Button (shown after 6 seconds of scanning if lighting is dark) -->
-    <button id="fallback-trigger">CAN'T LOCK? TAP HERE TO FORCE COMBO</button>
+    <!-- Fallback Manual Button -->
+    <button id="fallback-trigger">CAN'T LOCK? TAP HERE TO BLAST COMBO</button>
 
-    <!-- Bottom Interactive Prompt -->
+    <!-- Tap Prompt -->
     <div id="tap-prompt">⚡ TAP SCREEN TO COMBO BLAST!</div>
-    
-    <!-- Transparent Click Catcher -->
     <div id="touch-overlay"></div>
 
-    <!-- Official Tournament Reward Modal -->
+    <!-- Win Modal -->
     <div id="tourney-modal">
-      <div class="crown-title">👑</div>
-      <h2 class="combo-headline">COMBO x4 CLEARED!</h2>
-      <div class="points-pill">+1,450 BONUS POINTS</div>
-      <p class="perk-desc">
-        Your Desk Combo is locked in. Enter today's official prize run to compete for top spots on the leaderboard!
-      </p>
+      <div style="font-size: 36px; margin-bottom: 2px;">👑</div>
+      <h2 style="font-size: 24px; font-weight: 900; margin: 4px 0; color: #fff;">COMBO x4 CLEARED!</h2>
+      <div style="color: var(--green); font-weight: 800; font-size: 16px; margin: 8px 0;">+1,450 BONUS POINTS</div>
+      <p style="color: #94a3b8; font-size: 13px; line-height: 1.5;">Your Desk Combo is locked in. Enter today's official prize run to compete for top spots!</p>
       <button class="claim-btn" id="claim-btn">
         ENTER TOURNAMENT NOW 🏆
       </button>
     </div>
 
-    <!-- MindAR Scene -->
+    <!-- MindAR Scene: uses absolute path /ar/keyboard.mind and disabled default loaders -->
     <a-scene
-      mindar-image="imageTargetSrc: ./keyboard.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.001; filterBeta: 0.01; warmupTolerance: 2; missTolerance: 8;"
+      mindar-image="imageTargetSrc: /ar/keyboard.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.001; filterBeta: 0.01; warmupTolerance: 2; missTolerance: 8;"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       xr-mode-ui="enabled: false"
@@ -428,19 +374,11 @@
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Anchored above keyboard -->
       <a-entity mindar-image-target="targetIndex: 0" id="keyboard-target">
         <a-entity position="0 0.15 0" rotation="-30 0 0" id="board-root">
+          <a-box position="0 0 -0.01" depth="0.02" height="1.0" width="1.0" material="color: #080911; opacity: 0.92;"></a-box>
+          <a-box position="0 0 0.01" depth="0.01" height="1.02" width="1.02" material="color: #38bdf8; wireframe: true; opacity: 0.6;"></a-box>
           
-          <!-- Deep Dark Glass Board backing -->
-          <a-box position="0 0 -0.01" depth="0.02" height="1.0" width="1.0" 
-                 material="color: #080911; opacity: 0.92; metalness: 0.2; roughness: 0.5;"></a-box>
-          
-          <!-- Glowing Cyan Frame -->
-          <a-box position="0 0 0.01" depth="0.01" height="1.02" width="1.02" 
-                 material="color: #38bdf8; wireframe: true; opacity: 0.6;"></a-box>
-
-          <!-- Pre-laid blocks (Cyan & Dark Navy) -->
           <a-box position="-0.25 0.1 0.05" depth="0.06" height="0.22" width="0.22" material="color: #38bdf8;"></a-box>
           <a-box position="0.0 0.1 0.05" depth="0.06" height="0.22" width="0.22" material="color: #38bdf8;"></a-box>
           <!-- Empty Slot at: (0.25, 0.1, 0.05) -->
@@ -449,117 +387,46 @@
           <a-box position="0.0 -0.15 0.05" depth="0.06" height="0.22" width="0.22" material="color: #6366f1;"></a-box>
           <a-box position="0.25 -0.15 0.05" depth="0.06" height="0.22" width="0.22" material="color: #6366f1;"></a-box>
 
-          <!-- The Floating Golden Player Piece -->
           <a-entity id="player-piece" position="0 -0.7 0.1">
-            <a-box position="0 0 0" depth="0.08" height="0.22" width="0.22" 
-                   material="color: #f59e0b; emissive: #f59e0b; emissiveIntensity: 0.6;"></a-box>
+            <a-box position="0 0 0" depth="0.08" height="0.22" width="0.22" material="color: #f59e0b; emissive: #f59e0b; emissiveIntensity: 0.6;"></a-box>
           </a-entity>
 
-          <!-- 3D Floating Combo Text -->
-          <a-text id="ar-combo-text" value="" align="center" position="0 0.7 0.1" 
-                  scale="1.2 1.2 1.2" color="#f59e0b" visible="false"></a-text>
+          <a-text id="ar-combo-text" value="" align="center" position="0 0.7 0.1" scale="1.2 1.2 1.2" color="#f59e0b" visible="false"></a-text>
         </a-entity>
       </a-entity>
     </a-scene>
 
     <script>
-      const target = document.querySelector('#keyboard-target');
+      const startScreen = document.querySelector('#start-screen');
+      const startBtn = document.querySelector('#start-btn');
+      const scene = document.querySelector('a-scene');
       const hudPill = document.querySelector('#hud-pill');
       const hudText = document.querySelector('#hud-text');
+      const target = document.querySelector('#keyboard-target');
       const tapPrompt = document.querySelector('#tap-prompt');
       const touchOverlay = document.querySelector('#touch-overlay');
       const playerPiece = document.querySelector('#player-piece');
       const tourneyModal = document.querySelector('#tourney-modal');
       const comboText = document.querySelector('#ar-combo-text');
       const claimBtn = document.querySelector('#claim-btn');
+      const scanningGuide = document.querySelector('#scanning-guide');
+      const fallbackTrigger = document.querySelector('#fallback-trigger');
+      const errorModal = document.querySelector('#error-modal');
+      const errorMsg = document.querySelector('#error-msg');
 
       let hasPlayed = false;
 
-      // 1. Detection state handling
-      target.addEventListener('targetFound', () => {
-        if (!hasPlayed) {
-          hudText.innerText = "KEYBOARD LOCKED 🎯";
-          hudPill.style.borderColor = "var(--green)";
-          tapPrompt.style.display = "block";
-          touchOverlay.style.display = "block";
-        }
-      });
-
-      target.addEventListener('targetLost', () => {
-        if (!hasPlayed) {
-          hudText.innerText = "POINT AT KEYBOARD SPACEBAR";
-          hudPill.style.borderColor = "rgba(245, 158, 11, 0.35)";
-          tapPrompt.style.display = "none";
-          touchOverlay.style.display = "none";
-        }
-      });
-
-      // 2. The 1-Tap Combo Trigger
-      touchOverlay.addEventListener('click', () => {
-        if (hasPlayed) return;
-        hasPlayed = true;
-
-        tapPrompt.style.display = "none";
-        touchOverlay.style.display = "none";
-        hudPill.style.display = "none";
-
-        // Animate piece into empty slot (0.25, 0.1, 0.05)
-        playerPiece.setAttribute('animation', {
-          property: 'position',
-          to: '0.25 0.1 0.05',
-          dur: 350,
-          easing: 'easeOutQuad'
-        });
-
-        // Trigger explosion when it clicks into place
-        setTimeout(() => {
-          comboText.setAttribute('value', 'COMBO x4!');
-          comboText.setAttribute('visible', 'true');
-          comboText.setAttribute('animation', {
-            property: 'scale',
-            from: '1 1 1',
-            to: '2.4 2.4 2.4',
-            dur: 450,
-            easing: 'easeOutElastic'
-          });
-
-          // Gold and cyan tournament confetti
-          confetti({
-            particleCount: 90,
-            spread: 75,
-            origin: { y: 0.65 },
-            colors: ['#f59e0b', '#38bdf8', '#10b981', '#ffffff']
-          });
-
-          // Pop up the Tournament Prize Modal
-          setTimeout(() => {
-            tourneyModal.style.display = "block";
-          }, 1100);
-
-        }, 350);
-      });
-
-      // MindAR Scene & Overlay Elements
-      const sceneEl = document.querySelector('a-scene');
-      const startOverlay = document.querySelector('#start-overlay');
-      const startBtn = document.querySelector('#start-btn');
-      const errorModal = document.querySelector('#error-modal');
-      const errorMsg = document.querySelector('#error-msg');
-      const scanningGuide = document.querySelector('#scanning-guide');
-      const fallbackTrigger = document.querySelector('#fallback-trigger');
-
-      // Shared Combo Execution Function (triggered either by AR tap or manual fallback)
+      // Combo Trigger
       const triggerComboBlast = () => {
         if (hasPlayed) return;
         hasPlayed = true;
 
         if (scanningGuide) scanningGuide.style.display = 'none';
         if (fallbackTrigger) fallbackTrigger.style.display = 'none';
-        tapPrompt.style.display = "none";
-        touchOverlay.style.display = "none";
-        hudPill.style.display = "none";
+        tapPrompt.style.display = 'none';
+        touchOverlay.style.display = 'none';
+        hudPill.style.display = 'none';
 
-        // Animate piece into empty slot (0.25, 0.1, 0.05)
         playerPiece.setAttribute('animation', {
           property: 'position',
           to: '0.25 0.1 0.05',
@@ -567,7 +434,6 @@
           easing: 'easeOutQuad'
         });
 
-        // Trigger explosion when it clicks into place
         setTimeout(() => {
           comboText.setAttribute('value', 'COMBO x4!');
           comboText.setAttribute('visible', 'true');
@@ -579,7 +445,6 @@
             easing: 'easeOutElastic'
           });
 
-          // Gold and cyan tournament confetti
           confetti({
             particleCount: 110,
             spread: 80,
@@ -587,11 +452,9 @@
             colors: ['#f59e0b', '#38bdf8', '#10b981', '#ffffff']
           });
 
-          // Pop up the Tournament Prize Modal
           setTimeout(() => {
-            tourneyModal.style.display = "block";
+            tourneyModal.style.display = 'block';
           }, 1100);
-
         }, 350);
       };
 
@@ -600,13 +463,61 @@
         fallbackTrigger.addEventListener('click', triggerComboBlast);
       }
 
-      // Detection state handling
+      // Start on user tap: initiates camera stream directly within user gesture
+      startBtn.addEventListener('click', async () => {
+        startBtn.disabled = true;
+        startBtn.innerText = 'STARTING CAMERA...';
+
+        try {
+          // Direct getUserMedia call to satisfy mobile Safari user gesture policy
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+              const testStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+              testStream.getTracks().forEach(t => t.stop());
+            } catch (pErr) {
+              console.warn('Initial permission prompt:', pErr);
+            }
+          }
+
+          const startAR = () => {
+            const arSystem = scene.systems['mindar-image-system'];
+            if (arSystem) {
+              arSystem.start();
+              startScreen.style.display = 'none';
+              hudPill.style.display = 'flex';
+              if (scanningGuide) scanningGuide.style.display = 'flex';
+
+              // Show fallback option if dark room or keyboard recognition takes >4s
+              setTimeout(() => {
+                if (!hasPlayed && fallbackTrigger) {
+                  fallbackTrigger.style.display = 'block';
+                }
+              }, 4000);
+            } else {
+              setTimeout(startAR, 100);
+            }
+          };
+
+          if (scene.hasLoaded) {
+            startAR();
+          } else {
+            scene.addEventListener('loaded', startAR, { once: true });
+          }
+        } catch (err) {
+          console.error('AR camera failed to start:', err);
+          startScreen.style.display = 'none';
+          errorModal.style.display = 'block';
+          errorMsg.innerText = err.message || 'Failed to initialize camera.';
+        }
+      });
+
+      // Target detected
       target.addEventListener('targetFound', () => {
         if (!hasPlayed) {
           hudText.innerText = "KEYBOARD LOCKED 🎯";
           hudPill.style.borderColor = "var(--green)";
-          if (scanningGuide) scanningGuide.style.display = "none";
-          if (fallbackTrigger) fallbackTrigger.style.display = "none";
+          if (scanningGuide) scanningGuide.style.display = 'none';
+          if (fallbackTrigger) fallbackTrigger.style.display = 'none';
           tapPrompt.style.display = "block";
           touchOverlay.style.display = "block";
         }
@@ -615,65 +526,17 @@
       target.addEventListener('targetLost', () => {
         if (!hasPlayed) {
           hudText.innerText = "POINT AT KEYBOARD SPACEBAR";
-          hudPill.style.borderColor = "rgba(245, 158, 11, 0.35)";
-          if (scanningGuide) scanningGuide.style.display = "flex";
+          hudPill.style.borderColor = "rgba(245, 158, 11, 0.4)";
+          if (scanningGuide) scanningGuide.style.display = 'flex';
           tapPrompt.style.display = "none";
           touchOverlay.style.display = "none";
         }
       });
 
-      // User gesture trigger to start camera (Satisfies iOS Safari & Android Chrome permissions)
-      startBtn.addEventListener('click', async () => {
-        startBtn.disabled = true;
-        startBtn.innerHTML = '<span>STARTING CAMERA...</span>';
-
-        try {
-          // Pre-request getUserMedia directly inside click event loop to guarantee permission prompt on iOS Safari
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            try {
-              const testStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-              // Release test track immediately so MindAR can claim it without device lock
-              testStream.getTracks().forEach(track => track.stop());
-            } catch (permErr) {
-              console.warn("Direct stream check prompted:", permErr);
-            }
-          }
-
-          const startAR = () => {
-            const arSystem = sceneEl.systems['mindar-image-system'];
-            if (arSystem) {
-              arSystem.start();
-              startOverlay.style.display = 'none';
-              if (scanningGuide) scanningGuide.style.display = 'flex';
-              
-              // If user is in dark room or keyboard pattern takes time, offer manual 1-tap fallback
-              setTimeout(() => {
-                if (!hasPlayed && fallbackTrigger) {
-                  fallbackTrigger.style.display = 'block';
-                }
-              }, 4500);
-            } else {
-              setTimeout(startAR, 100);
-            }
-          };
-
-          if (sceneEl.hasLoaded) {
-            startAR();
-          } else {
-            sceneEl.addEventListener('loaded', startAR, { once: true });
-          }
-        } catch (err) {
-          console.error("Failed to start AR camera:", err);
-          startOverlay.style.display = 'none';
-          errorModal.style.display = 'block';
-          errorMsg.innerText = err.message || "Failed to initialize camera.";
-        }
-      });
-
-      // Handle AR errors (permission denied, no camera device, etc.)
-      sceneEl.addEventListener('arError', (event) => {
-        console.error('MindAR error encountered:', event.detail);
-        startOverlay.style.display = 'none';
+      // Scene error listener
+      scene.addEventListener('arError', (event) => {
+        console.error('MindAR error:', event.detail);
+        startScreen.style.display = 'none';
         if (scanningGuide) scanningGuide.style.display = 'none';
         errorModal.style.display = 'block';
         if (event.detail && event.detail.error) {
@@ -681,13 +544,11 @@
         }
       });
 
-      sceneEl.addEventListener('arReady', () => {
-        console.log('MindAR tracking engine is ready and scanning.');
+      scene.addEventListener('arReady', () => {
+        console.log('MindAR is ready.');
         hudText.innerText = "POINT AT KEYBOARD SPACEBAR";
-        if (scanningGuide) scanningGuide.style.display = "flex";
       });
 
-      // 3. Forward player to your main game with bonus params
       claimBtn.addEventListener('click', () => {
         window.location.href = '/?source=desk_ar&bonus=combo_boost&ref=daily_rush';
       });
