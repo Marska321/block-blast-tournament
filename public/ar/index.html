@@ -25,11 +25,14 @@
     <style>
       :root {
         --bg-dark: #080911;
-        --card-bg: rgba(14, 17, 27, 0.95);
-        --gold: #f59e0b;
-        --gold-glow: rgba(245, 158, 11, 0.5);
-        --cyan: #38bdf8;
-        --green: #10b981;
+        --card-bg: rgba(14, 17, 27, 0.94);
+        --board-bg: #18223c;
+        --board-border: #3b82f6;
+        --gold: #ffd600;
+        --gold-glow: rgba(255, 214, 0, 0.45);
+        --cyan: #00e5ff;
+        --green: #76ff03;
+        --pink: #ff007f;
       }
 
       * { box-sizing: border-box; }
@@ -40,6 +43,7 @@
         background-color: var(--bg-dark);
         color: #fff;
         user-select: none;
+        -webkit-tap-highlight-color: transparent;
       }
 
       /* Suppress MindAR built-in overlay spinners and broken icons */
@@ -51,11 +55,11 @@
         display: none !important;
       }
 
-      /* Initial Start Gate: Unlocks mobile camera permissions cleanly */
+      /* Initial Start Gate: Unlocks mobile camera permissions & Web Audio cleanly */
       #start-screen {
         position: fixed;
         inset: 0;
-        background: radial-gradient(circle at 50% 30%, #151a2d 0%, #080911 100%);
+        background: radial-gradient(circle at 50% 28%, #192445 0%, #080911 100%);
         z-index: 1000;
         display: flex;
         flex-direction: column;
@@ -66,37 +70,38 @@
       }
 
       .start-card {
-        background: rgba(14, 17, 27, 0.88);
-        border: 1px solid rgba(245, 158, 11, 0.35);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border-radius: 24px;
-        padding: 32px 24px;
-        max-width: 340px;
+        background: rgba(14, 17, 27, 0.92);
+        border: 1px solid rgba(59, 130, 246, 0.4);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border-radius: 26px;
+        padding: 34px 26px;
+        max-width: 350px;
         width: 100%;
-        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(245, 158, 11, 0.15);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 35px rgba(59, 130, 246, 0.25);
       }
 
       .start-badge {
         display: inline-block;
-        background: rgba(245, 158, 11, 0.15);
-        border: 1px solid rgba(245, 158, 11, 0.4);
-        color: var(--gold);
+        background: rgba(0, 229, 255, 0.14);
+        border: 1px solid rgba(0, 229, 255, 0.45);
+        color: var(--cyan);
         font-weight: 800;
         font-size: 11px;
-        letter-spacing: 1px;
+        letter-spacing: 1.2px;
         text-transform: uppercase;
-        padding: 4px 12px;
+        padding: 5px 14px;
         border-radius: 999px;
         margin-bottom: 14px;
       }
 
       .start-title {
-        font-size: 24px;
+        font-size: 26px;
         font-weight: 900;
         margin: 0 0 8px 0;
         color: #fff;
-        letter-spacing: 0.5px;
+        letter-spacing: -0.5px;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
       }
 
       .start-sub {
@@ -107,7 +112,7 @@
       }
 
       .start-btn {
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        background: linear-gradient(135deg, #ffd600 0%, #ff9800 100%);
         color: #080911;
         border: none;
         padding: 16px 28px;
@@ -116,7 +121,7 @@
         border-radius: 14px;
         cursor: pointer;
         width: 100%;
-        box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+        box-shadow: 0 8px 25px rgba(255, 214, 0, 0.4);
         transition: transform 0.1s ease;
       }
       .start-btn:active { transform: scale(0.97); }
@@ -134,84 +139,241 @@
       }
 
       .reticle-box {
-        width: 270px;
-        height: 130px;
-        border: 2px dashed rgba(245, 158, 11, 0.7);
-        border-radius: 18px;
-        box-shadow: 0 0 30px rgba(245, 158, 11, 0.2), inset 0 0 20px rgba(245, 158, 11, 0.1);
+        width: 280px;
+        height: 140px;
+        border: 2px dashed rgba(0, 229, 255, 0.75);
+        border-radius: 20px;
+        box-shadow: 0 0 35px rgba(0, 229, 255, 0.25), inset 0 0 20px rgba(0, 229, 255, 0.1);
         animation: reticlePulse 2s infinite ease-in-out;
       }
 
       @keyframes reticlePulse {
-        0%, 100% { transform: scale(1); border-color: rgba(245, 158, 11, 0.7); }
-        50% { transform: scale(1.04); border-color: rgba(56, 189, 248, 0.9); box-shadow: 0 0 35px rgba(56, 189, 248, 0.3); }
+        0%, 100% { transform: scale(1); border-color: rgba(0, 229, 255, 0.75); }
+        50% { transform: scale(1.03); border-color: rgba(255, 214, 0, 0.9); box-shadow: 0 0 40px rgba(255, 214, 0, 0.35); }
       }
 
       .reticle-label {
         margin-top: 14px;
-        background: rgba(8, 9, 17, 0.85);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        backdrop-filter: blur(8px);
-        padding: 6px 16px;
+        background: rgba(8, 9, 17, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        padding: 6px 18px;
         border-radius: 999px;
         font-size: 12px;
-        font-weight: 700;
+        font-weight: 800;
         color: #e2e8f0;
+        letter-spacing: 0.5px;
       }
 
-      /* Top HUD Notification */
-      #hud-pill {
+      /* Game HUD Header (Styled identically to Block Blast web game) */
+      #game-hud {
         display: none;
-        position: absolute;
-        top: 24px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: var(--card-bg);
-        border: 1px solid rgba(245, 158, 11, 0.4);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        padding: 8px 18px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        max-width: 460px;
+        margin: 0 auto;
+        padding: 12px 16px 0;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        pointer-events: none;
+        z-index: 150;
+      }
+
+      .hud-top-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+      }
+
+      .hud-best-row {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--gold);
+        font-size: 0.82rem;
+        font-weight: 800;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 214, 0, 0.35);
+        padding: 4px 10px;
+        border-radius: 14px;
+        backdrop-filter: blur(8px);
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+        pointer-events: auto;
+      }
+
+      .hud-score-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .hud-score-val {
+        font-size: 2.8rem;
+        font-weight: 900;
+        color: #ffffff;
+        letter-spacing: -0.03em;
+        text-shadow: 0 3px 12px rgba(0, 0, 0, 0.8);
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .hud-sound-btn {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #fff;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        cursor: pointer;
+        backdrop-filter: blur(6px);
+        pointer-events: auto;
+      }
+
+      /* Authentic Animated Combo Bar */
+      #combo-bar-container {
+        width: 100%;
+        max-width: 240px;
+        background: rgba(0, 0, 0, 0.55);
+        border: 1px solid rgba(56, 189, 248, 0.4);
         border-radius: 999px;
-        font-size: 13px;
-        font-weight: 700;
-        color: #e2e8f0;
-        z-index: 100;
+        padding: 3px 4px;
+        display: flex;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+        height: 22px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        transition: border-color 0.3s ease;
+      }
+
+      #combo-bar-container.active {
+        border-color: #ff007f;
+        box-shadow: 0 0 18px rgba(255, 0, 127, 0.6);
+      }
+
+      #combo-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #00e5ff 0%, #76ff03 60%, #ffd600 100%);
+        border-radius: 999px;
+        transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        box-shadow: 0 0 10px rgba(118, 255, 3, 0.6);
+      }
+
+      #combo-text {
+        position: absolute;
+        width: 100%;
+        text-align: center;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.8px;
+        color: #fff;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+      }
+
+      /* Top AR Status Pill */
+      #status-pill {
+        display: flex;
         align-items: center;
         gap: 8px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
-        pointer-events: none;
+        background: rgba(8, 9, 17, 0.82);
+        border: 1px solid rgba(59, 130, 246, 0.4);
+        padding: 5px 14px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #94a3b8;
+        backdrop-filter: blur(8px);
+        margin-top: 4px;
       }
 
       .pulse-dot {
-        width: 8px;
-        height: 8px;
-        background: var(--gold);
+        width: 7px;
+        height: 7px;
+        background: var(--cyan);
         border-radius: 50%;
-        box-shadow: 0 0 8px var(--gold);
+        box-shadow: 0 0 8px var(--cyan);
         animation: blink 1.2s infinite;
       }
 
       @keyframes blink {
         0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.4; transform: scale(0.8); }
+        50% { opacity: 0.3; transform: scale(0.7); }
       }
 
-      /* 1-Tap Tap Prompt */
+      /* Arcade Floating Praise Toast */
+      #praise-overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 180;
+        opacity: 0;
+        transform: scale(0.4);
+        transition: opacity 0.15s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      #praise-overlay.show {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .praise-title {
+        font-size: 38px;
+        font-weight: 900;
+        color: #ff3366;
+        text-shadow: 
+          -3px -3px 0 #080911,
+           3px -3px 0 #080911,
+          -3px  3px 0 #080911,
+           3px  3px 0 #080911,
+           0 8px 24px rgba(255, 51, 102, 0.8);
+        letter-spacing: 1px;
+        margin: 0;
+        line-height: 1;
+      }
+
+      .praise-sub {
+        font-size: 18px;
+        font-weight: 900;
+        color: var(--gold);
+        text-shadow: 
+          -2px -2px 0 #080911,
+           2px -2px 0 #080911,
+          -2px  2px 0 #080911,
+           2px  2px 0 #080911,
+           0 4px 15px rgba(255, 214, 0, 0.7);
+        letter-spacing: 0.8px;
+        margin-top: 6px;
+      }
+
+      /* 1-Tap Trigger Prompt */
       #tap-prompt {
         display: none;
         position: absolute;
         bottom: 85px;
         left: 50%;
         transform: translateX(-50%);
-        background: linear-gradient(135deg, #f59e0b, #d97706);
+        background: linear-gradient(135deg, #ffd600, #ff9800);
         color: #080911;
         font-weight: 900;
         font-size: 15px;
         letter-spacing: 0.5px;
-        padding: 14px 28px;
+        padding: 13px 26px;
         border-radius: 999px;
         box-shadow: 0 0 25px var(--gold-glow);
-        z-index: 150;
+        z-index: 160;
         pointer-events: none;
         animation: floatPulse 1.2s infinite alternate ease-in-out;
         white-space: nowrap;
@@ -230,15 +392,15 @@
         cursor: pointer;
       }
 
-      /* Fallback Instant Trigger if lighting or key layout hinders recognition */
+      /* Fallback Manual Blast Button */
       #fallback-trigger {
         display: none;
         position: fixed;
         bottom: 24px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(14, 17, 27, 0.9);
-        border: 1px solid rgba(245, 158, 11, 0.4);
+        background: rgba(14, 17, 27, 0.92);
+        border: 1px solid rgba(0, 229, 255, 0.5);
         color: #e2e8f0;
         font-size: 12px;
         font-weight: 800;
@@ -248,45 +410,75 @@
         z-index: 160;
         backdrop-filter: blur(10px);
         white-space: nowrap;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
       }
       #fallback-trigger:active {
         color: #fff;
-        border-color: var(--gold);
+        border-color: var(--cyan);
+        transform: translateX(-50%) scale(0.96);
       }
 
-      /* Tournament Reward Modal */
+      /* Tournament Victory Reward Modal */
       #tourney-modal {
         display: none;
         position: absolute;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: var(--card-bg);
-        border: 1px solid rgba(245, 158, 11, 0.5);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        padding: 28px 24px;
-        border-radius: 20px;
+        background: #151829;
+        border: 1px solid rgba(255, 214, 0, 0.45);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        padding: 28px 22px;
+        border-radius: 22px;
         text-align: center;
-        width: 86%;
-        max-width: 340px;
-        z-index: 200;
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(245, 158, 11, 0.2);
+        width: 88%;
+        max-width: 350px;
+        z-index: 220;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(255, 214, 0, 0.25);
+      }
+
+      .modal-crown {
+        font-size: 38px;
+        line-height: 1;
+        margin-bottom: 4px;
+        filter: drop-shadow(0 4px 10px rgba(255, 214, 0, 0.5));
+      }
+
+      .modal-score-card {
+        background: rgba(8, 9, 17, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 14px;
+        padding: 14px 12px;
+        margin: 14px 0;
       }
 
       .claim-btn {
-        background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
+        background: linear-gradient(135deg, #ffd600 0%, #ff9800 100%);
         color: #080911;
         border: none;
-        padding: 15px 24px;
+        padding: 15px 22px;
         font-size: 15px;
         font-weight: 900;
         letter-spacing: 0.5px;
-        border-radius: 12px;
+        border-radius: 13px;
         cursor: pointer;
         width: 100%;
-        margin-top: 15px;
-        box-shadow: 0 8px 20px var(--gold-glow);
+        box-shadow: 0 8px 25px rgba(255, 214, 0, 0.4);
+        margin-bottom: 8px;
+      }
+      .claim-btn:active { transform: scale(0.97); }
+
+      .replay-btn {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        color: #cbd5e1;
+        padding: 10px 18px;
+        font-size: 13px;
+        font-weight: 700;
+        border-radius: 10px;
+        cursor: pointer;
+        width: 100%;
       }
 
       /* Error Modal */
@@ -298,7 +490,7 @@
         transform: translate(-50%, -50%);
         background: #111422;
         border: 1px solid #ef4444;
-        border-radius: 18px;
+        border-radius: 20px;
         padding: 24px;
         text-align: center;
         width: 86%;
@@ -315,13 +507,13 @@
     </style>
   </head>
   <body>
-    <!-- Start Screen: Unlocks camera cleanly on mobile -->
+    <!-- Start Screen: Unlocks camera cleanly & unlocks Web Audio context on mobile -->
     <div id="start-screen">
       <div class="start-card">
         <div class="start-badge">DESK AR EXPERIENCE</div>
         <div style="font-size: 42px; margin-bottom: 12px;">📱✨</div>
         <h1 class="start-title">AR COMBO RUSH</h1>
-        <p class="start-sub">Point your camera at your keyboard's spacebar to unlock 3D combos & bonus points.</p>
+        <p class="start-sub">Scan your keyboard spacebar to project the official 3D Block Blast board and trigger a multi-line blast.</p>
         <button class="start-btn" id="start-btn">START AR CAMERA ⚡</button>
       </div>
     </div>
@@ -339,31 +531,66 @@
       <div class="reticle-label">FRAME KEYBOARD SPACEBAR HERE</div>
     </div>
 
-    <!-- HUD Notification -->
-    <div id="hud-pill">
-      <span class="pulse-dot"></span>
-      <span id="hud-text">POINT AT KEYBOARD SPACEBAR</span>
+    <!-- Authentic Block Blast Game HUD Header -->
+    <div id="game-hud">
+      <div class="hud-top-row">
+        <div class="hud-best-row">
+          <span>👑</span>
+          <span style="font-size: 0.72rem; color: #cbd5e1; margin-right: 2px;">BEST</span>
+          <span id="best-score-val">18,420</span>
+        </div>
+        <div class="hud-score-box">
+          <div class="hud-score-val" id="current-score-val">0</div>
+        </div>
+        <button class="hud-sound-btn" id="mute-btn" title="Toggle Sound">🔊</button>
+      </div>
+
+      <!-- Combo Bar -->
+      <div id="combo-bar-container">
+        <div id="combo-fill"></div>
+        <div id="combo-text">COMBO READY</div>
+      </div>
+
+      <div id="status-pill">
+        <span class="pulse-dot"></span>
+        <span id="hud-status-text">AIM CAMERA AT KEYBOARD SPACEBAR</span>
+      </div>
+    </div>
+
+    <!-- Floating Praise Banner Toast -->
+    <div id="praise-overlay">
+      <div class="praise-title" id="praise-main-text">UNBELIEVABLE!!</div>
+      <div class="praise-sub" id="praise-sub-text">×4 COMBO BLAST</div>
     </div>
 
     <!-- Fallback Manual Button -->
     <button id="fallback-trigger">CAN'T LOCK? TAP HERE TO BLAST COMBO</button>
 
     <!-- Tap Prompt -->
-    <div id="tap-prompt">⚡ TAP SCREEN TO COMBO BLAST!</div>
+    <div id="tap-prompt">⚡ TAP TO SLAM PIECE & BLAST COMBO!</div>
     <div id="touch-overlay"></div>
 
-    <!-- Win Modal -->
+    <!-- Victory / Reward Modal -->
     <div id="tourney-modal">
-      <div style="font-size: 36px; margin-bottom: 2px;">👑</div>
-      <h2 style="font-size: 24px; font-weight: 900; margin: 4px 0; color: #fff;">COMBO x4 CLEARED!</h2>
-      <div style="color: var(--green); font-weight: 800; font-size: 16px; margin: 8px 0;">+1,450 BONUS POINTS</div>
-      <p style="color: #94a3b8; font-size: 13px; line-height: 1.5;">Your Desk Combo is locked in. Enter today's official prize run to compete for top spots!</p>
+      <div class="modal-crown">👑</div>
+      <h2 style="font-size: 22px; font-weight: 900; margin: 4px 0; color: #fff;">DESK COMBO UNLOCKED!</h2>
+      <div style="color: var(--cyan); font-weight: 800; font-size: 13px; letter-spacing: 0.5px;">TRIPLE LINE CLEAR • ×4 MULTIPLIER</div>
+      
+      <div class="modal-score-card">
+        <div style="font-size: 12px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Bonus Score Claimed</div>
+        <div style="font-size: 28px; font-weight: 900; color: var(--gold); margin: 2px 0;">+1,450 PTS</div>
+        <div style="font-size: 11px; color: #76ff03; font-weight: 700;">PROMOTED TO TOP 5% QUALIFIER ⚡</div>
+      </div>
+
       <button class="claim-btn" id="claim-btn">
         ENTER TOURNAMENT NOW 🏆
       </button>
+      <button class="replay-btn" id="replay-btn">
+        REPLAY AR BLAST 🔄
+      </button>
     </div>
 
-    <!-- MindAR Scene: uses absolute path /ar/keyboard.mind and disabled default loaders -->
+    <!-- MindAR Scene: Anchors authentic 8x8 Board & 3D Candy Blocks to keyboard -->
     <a-scene
       mindar-image="imageTargetSrc: /ar/keyboard.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.001; filterBeta: 0.01; warmupTolerance: 2; missTolerance: 8;"
       color-space="sRGB"
@@ -372,43 +599,556 @@
       loading-screen="enabled: false"
       device-orientation-permission-ui="enabled: false"
     >
+      <a-assets id="game-assets"></a-assets>
+
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
       <a-entity mindar-image-target="targetIndex: 0" id="keyboard-target">
-        <a-entity position="0 0.15 0" rotation="-30 0 0" id="board-root">
-          <a-box position="0 0 -0.01" depth="0.02" height="1.0" width="1.0" material="color: #080911; opacity: 0.92;"></a-box>
-          <a-box position="0 0 0.01" depth="0.01" height="1.02" width="1.02" material="color: #38bdf8; wireframe: true; opacity: 0.6;"></a-box>
+        <!-- 8x8 Board Rig (tilted -28° for desk perspective) -->
+        <a-entity position="0 0.16 0" rotation="-28 0 0" id="board-root">
           
-          <a-box position="-0.25 0.1 0.05" depth="0.06" height="0.22" width="0.22" material="color: #38bdf8;"></a-box>
-          <a-box position="0.0 0.1 0.05" depth="0.06" height="0.22" width="0.22" material="color: #38bdf8;"></a-box>
-          <!-- Empty Slot at: (0.25, 0.1, 0.05) -->
+          <!-- Board Base Frame (Generated with authentic sunken sockets & blue glow) -->
+          <a-plane id="board-plane" position="0 0 0" width="1.0" height="1.0"></a-plane>
 
-          <a-box position="-0.25 -0.15 0.05" depth="0.06" height="0.22" width="0.22" material="color: #6366f1;"></a-box>
-          <a-box position="0.0 -0.15 0.05" depth="0.06" height="0.22" width="0.22" material="color: #6366f1;"></a-box>
-          <a-box position="0.25 -0.15 0.05" depth="0.06" height="0.22" width="0.22" material="color: #6366f1;"></a-box>
+          <!-- Board Static Blocks Group -->
+          <a-entity id="board-blocks"></a-entity>
 
-          <a-entity id="player-piece" position="0 -0.7 0.1">
-            <a-box position="0 0 0" depth="0.08" height="0.22" width="0.22" material="color: #f59e0b; emissive: #f59e0b; emissiveIntensity: 0.6;"></a-box>
+          <!-- Ghost Slot Highlights for the incoming piece -->
+          <a-entity id="ghost-group"></a-entity>
+
+          <!-- Full Row & Column Laser Clear Flash Planes -->
+          <a-entity id="flash-group" visible="false">
+            <!-- Row 4 Flash -->
+            <a-plane position="0 0.055 0.035" width="0.88" height="0.105" material="color: #ffffff; opacity: 0.9; shader: flat;"></a-plane>
+            <!-- Row 5 Flash -->
+            <a-plane position="0 -0.055 0.035" width="0.88" height="0.105" material="color: #00e5ff; opacity: 0.9; shader: flat;"></a-plane>
+            <!-- Col 4 Flash -->
+            <a-plane position="0.055 0 0.035" width="0.105" height="0.88" material="color: #ffd600; opacity: 0.9; shader: flat;"></a-plane>
           </a-entity>
 
-          <a-text id="ar-combo-text" value="" align="center" position="0 0.7 0.1" scale="1.2 1.2 1.2" color="#f59e0b" visible="false"></a-text>
+          <!-- Player Tray Area (Positioned floating just below board) -->
+          <a-entity id="tray-root" position="0 -0.66 0.06">
+            <!-- Left Piece (2x2 Cyan helper chunk) -->
+            <a-entity id="tray-piece-left" position="-0.32 0 0"></a-entity>
+            <!-- Active Center Piece (Golden 3-Block Spanner with pulse glow) -->
+            <a-entity id="tray-piece-center" position="0 0 0"></a-entity>
+            <!-- Right Piece (Orange Corner piece) -->
+            <a-entity id="tray-piece-right" position="0.32 0 0"></a-entity>
+          </a-entity>
+
         </a-entity>
       </a-entity>
     </a-scene>
 
     <script>
+      // =========================================================================
+      // 1. SYNTHESIZED WEB AUDIO API SOUND SYSTEM (Ported from src/audio.ts)
+      // 100% zero-dependency, zero network latency, authentic in-game audio
+      // =========================================================================
+      class SoundManager {
+        constructor() {
+          this.ctx = null;
+          this.muted = false;
+        }
+
+        initCtx() {
+          if (!this.ctx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+              this.ctx = new AudioContextClass();
+            }
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+        }
+
+        playPlace() {
+          if (this.muted) return;
+          this.initCtx();
+          if (!this.ctx) return;
+
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          const now = this.ctx.currentTime;
+          osc.frequency.setValueAtTime(320, now);
+          osc.frequency.exponentialRampToValueAtTime(160, now + 0.09);
+
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.09);
+        }
+
+        playClear(comboCount = 4) {
+          if (this.muted) return;
+          this.initCtx();
+          if (!this.ctx) return;
+
+          const baseFreq = 440 * Math.pow(1.12, Math.min(comboCount, 12));
+          const now = this.ctx.currentTime;
+
+          // Dual-tone chime harmonic
+          [baseFreq, baseFreq * 1.5].forEach((freq, i) => {
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now + i * 0.04);
+            osc.frequency.exponentialRampToValueAtTime(freq * 1.25, now + 0.28);
+
+            gain.gain.setValueAtTime(0.3, now + i * 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now + i * 0.04);
+            osc.stop(now + 0.3);
+          });
+        }
+
+        playFanfare() {
+          if (this.muted) return;
+          this.initCtx();
+          if (!this.ctx) return;
+
+          const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+          const now = this.ctx.currentTime;
+
+          notes.forEach((freq, idx) => {
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sine';
+            const startT = now + idx * 0.08;
+            osc.frequency.setValueAtTime(freq, startT);
+            osc.frequency.exponentialRampToValueAtTime(freq * 1.05, startT + 0.32);
+
+            gain.gain.setValueAtTime(0.3, startT);
+            gain.gain.exponentialRampToValueAtTime(0.001, startT + 0.32);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(startT);
+            osc.stop(startT + 0.32);
+          });
+        }
+      }
+
+      const sounds = new SoundManager();
+
+      // =========================================================================
+      // 2. PROCEDURAL TEXTURE GENERATOR (Identical to src/gameFunctions.ts)
+      // Generates pixel-perfect 8x8 Board & 3D Candy Block materials on load
+      // =========================================================================
+      function adjustBrightness(hex, percent) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = Math.min(255, Math.max(0, (num >> 16) + amt));
+        const G = Math.min(255, Math.max(0, ((num >> 8) & 0x00ff) + amt));
+        const B = Math.min(255, Math.max(0, (num & 0x0000ff) + amt));
+        return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+      }
+
+      // Generate 8x8 Board background texture with glowing border & 64 recessed sockets
+      function createBoardTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+
+        // Outer Dark Frame
+        ctx.fillStyle = '#18223c';
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 12;
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 24;
+
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(16, 16, 992, 992, 42);
+        } else {
+          ctx.rect(16, 16, 992, 992);
+        }
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.stroke();
+
+        // 64 Sunken Recessed Sockets
+        const margin = 48;
+        const gridDim = 1024 - margin * 2;
+        const cellSize = gridDim / 8;
+        const pad = 5;
+        const socketSize = cellSize - pad * 2;
+        const socketRadius = Math.max(6, Math.floor(cellSize * 0.16));
+
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const x = margin + c * cellSize + pad;
+            const y = margin + r * cellSize + pad;
+
+            // Recessed socket body
+            ctx.fillStyle = '#344a7a';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(x, y, socketSize, socketSize, socketRadius);
+            } else {
+              ctx.rect(x, y, socketSize, socketSize);
+            }
+            ctx.fill();
+
+            // Top inner shadow for depth
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.moveTo(x + socketRadius, y + 1.5);
+            ctx.lineTo(x + socketSize - socketRadius, y + 1.5);
+            ctx.stroke();
+
+            // Bottom highlight lip
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(x + socketRadius, y + socketSize - 1.2);
+            ctx.lineTo(x + socketSize - socketRadius, y + socketSize - 1.2);
+            ctx.stroke();
+          }
+        }
+
+        return canvas.toDataURL('image/png');
+      }
+
+      // Generate 3D Candy Block Texture with bevels, vertical gradient & top pill reflection
+      function createCandyBlockTexture(color, isGolden = false) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        const s = 256;
+        const radius = 38;
+
+        // Base gradient
+        const grad = ctx.createLinearGradient(0, 8, 0, s - 8);
+        grad.addColorStop(0, adjustBrightness(color, 28));
+        grad.addColorStop(0.5, color);
+        grad.addColorStop(1, adjustBrightness(color, -30));
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(8, 8, s - 16, s - 16, radius);
+        } else {
+          ctx.rect(8, 8, s - 16, s - 16);
+        }
+        ctx.fill();
+
+        // Top highlight facet
+        const b = 28;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.beginPath();
+        ctx.moveTo(8 + radius, 8);
+        ctx.lineTo(8 + s - 16 - radius, 8);
+        ctx.lineTo(8 + s - 16 - radius - b, 8 + b);
+        ctx.lineTo(8 + radius + b, 8 + b);
+        ctx.closePath();
+        ctx.fill();
+
+        // Bottom shadow facet
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
+        ctx.beginPath();
+        ctx.moveTo(8 + radius, s - 8);
+        ctx.lineTo(8 + s - 16 - radius, s - 8);
+        ctx.lineTo(8 + s - 16 - radius - b, s - 8 - b);
+        ctx.lineTo(8 + radius + b, s - 8 - b);
+        ctx.closePath();
+        ctx.fill();
+
+        // Top Glossy "Pill" Capsule Reflection
+        const hlMargin = 26;
+        const hlWidth = s - 16 - hlMargin * 2;
+        const hlHeight = 62;
+        const hlRadius = 24;
+
+        const hlGrad = ctx.createLinearGradient(8 + hlMargin, 8 + hlMargin, 8 + hlMargin, 8 + hlMargin + hlHeight);
+        hlGrad.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
+        hlGrad.addColorStop(0.65, 'rgba(255, 255, 255, 0.22)');
+        hlGrad.addColorStop(1, 'rgba(255, 255, 255, 0.0)');
+
+        ctx.fillStyle = hlGrad;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(8 + hlMargin, 8 + hlMargin * 0.85, hlWidth, hlHeight, hlRadius);
+        } else {
+          ctx.rect(8 + hlMargin, 8 + hlMargin * 0.85, hlWidth, hlHeight);
+        }
+        ctx.fill();
+
+        // Crisp tile groove seam
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(8, 8, s - 16, s - 16, radius);
+        } else {
+          ctx.rect(8, 8, s - 16, s - 16);
+        }
+        ctx.stroke();
+
+        if (isGolden) {
+          ctx.font = '72px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('⚡', s / 2, s / 2 + 6);
+        }
+
+        return canvas.toDataURL('image/png');
+      }
+
+      // Authentic Color Palette (from src/blocks.ts)
+      const COLORS = {
+        pink: '#e91e63',
+        green: '#4caf50',
+        cyan: '#00bcd4',
+        orange: '#ff9800',
+        yellow: '#ffd600',
+        purple: '#9c27b0',
+        blue: '#2979ff'
+      };
+
+      const blockTextures = {};
+      Object.keys(COLORS).forEach(c => {
+        blockTextures[c] = createCandyBlockTexture(COLORS[c]);
+      });
+      blockTextures['golden'] = createCandyBlockTexture('#ffd600', true);
+
+      // =========================================================================
+      // 3. 3D SCENE SETUP & AUTHENTIC GAME STATE
+      // =========================================================================
+      const boardPlane = document.querySelector('#board-plane');
+      const boardBlocks = document.querySelector('#board-blocks');
+      const ghostGroup = document.querySelector('#ghost-group');
+      const trayCenter = document.querySelector('#tray-piece-center');
+      const trayLeft = document.querySelector('#tray-piece-left');
+      const trayRight = document.querySelector('#tray-piece-right');
+      const flashGroup = document.querySelector('#flash-group');
+
+      boardPlane.setAttribute('material', {
+        src: createBoardTexture(),
+        roughness: 0.4,
+        metalness: 0.1
+      });
+
+      // Grid coordinate helper (8x8 board, cell size 0.11m)
+      const CELL_SIZE = 0.11;
+      const getPos = (col, row, z = 0.02) => {
+        const x = (col - 3.5) * CELL_SIZE;
+        const y = -(row - 3.5) * CELL_SIZE;
+        return { x, y, z, str: `${x.toFixed(4)} ${y.toFixed(4)} ${z.toFixed(4)}` };
+      };
+
+      // Board Initial Layout:
+      // Rows 4 & 5 are nearly filled across cols 0..7 (except col 4 is open)
+      // Column 4 is nearly filled down rows 0..7 (except rows 3, 4, 5 are open)
+      // Placing a 3-Block Vertical Bar at (col 4, rows 3..5) will trigger:
+      // -> Line Clear on Row 4!
+      // -> Line Clear on Row 5!
+      // -> Line Clear on Column 4!
+      // = TRIPLE MULTI-LINE BLAST + COMBO x4!
+      const initialBoard = [
+        // row 0: Corner & filler
+        { c: 0, r: 0, col: 'green' }, { c: 1, r: 0, col: 'green' },
+        { c: 4, r: 0, col: 'blue' }, { c: 6, r: 0, col: 'purple' }, { c: 7, r: 0, col: 'purple' },
+        // row 1:
+        { c: 0, r: 1, col: 'green' }, { c: 1, r: 1, col: 'green' },
+        { c: 4, r: 1, col: 'blue' }, { c: 7, r: 1, col: 'purple' },
+        // row 2:
+        { c: 0, r: 2, col: 'pink' }, { c: 4, r: 2, col: 'blue' }, { c: 5, r: 2, col: 'yellow' },
+        // row 3:
+        { c: 0, r: 3, col: 'pink' }, { c: 2, r: 3, col: 'orange' }, { c: 7, r: 3, col: 'cyan' },
+        // row 4: ALMOST FULL (col 4 missing!)
+        { c: 0, r: 4, col: 'pink', isClearedRow: true },
+        { c: 1, r: 4, col: 'cyan', isClearedRow: true },
+        { c: 2, r: 4, col: 'orange', isClearedRow: true },
+        { c: 3, r: 4, col: 'green', isClearedRow: true },
+        /* c: 4 is OPEN */
+        { c: 5, r: 4, col: 'yellow', isClearedRow: true },
+        { c: 6, r: 4, col: 'purple', isClearedRow: true },
+        { c: 7, r: 4, col: 'cyan', isClearedRow: true },
+        // row 5: ALMOST FULL (col 4 missing!)
+        { c: 0, r: 5, col: 'cyan', isClearedRow: true },
+        { c: 1, r: 5, col: 'pink', isClearedRow: true },
+        { c: 2, r: 5, col: 'yellow', isClearedRow: true },
+        { c: 3, r: 5, col: 'green', isClearedRow: true },
+        /* c: 4 is OPEN */
+        { c: 5, r: 5, col: 'orange', isClearedRow: true },
+        { c: 6, r: 5, col: 'blue', isClearedRow: true },
+        { c: 7, r: 5, col: 'pink', isClearedRow: true },
+        // row 6:
+        { c: 1, r: 6, col: 'yellow' }, { c: 4, r: 6, col: 'blue', isClearedCol: true }, { c: 6, r: 6, col: 'orange' },
+        // row 7:
+        { c: 2, r: 7, col: 'purple' }, { c: 4, r: 7, col: 'blue', isClearedCol: true }, { c: 5, r: 7, col: 'green' }
+      ];
+
+      // Build Board Blocks
+      const boardBlockElements = [];
+      function renderBoardBlocks() {
+        boardBlocks.innerHTML = '';
+        boardBlockElements.length = 0;
+
+        initialBoard.forEach((b, idx) => {
+          const pos = getPos(b.c, b.r);
+          const el = document.createElement('a-box');
+          el.setAttribute('position', pos.str);
+          el.setAttribute('width', '0.103');
+          el.setAttribute('height', '0.103');
+          el.setAttribute('depth', '0.038');
+          el.setAttribute('material', {
+            src: blockTextures[b.col],
+            roughness: 0.3,
+            metalness: 0.1
+          });
+          el.dataset.col = b.c;
+          el.dataset.row = b.r;
+          el.dataset.isCleared = (b.isClearedRow || b.isClearedCol) ? 'true' : 'false';
+          boardBlocks.appendChild(el);
+          boardBlockElements.push(el);
+        });
+      }
+
+      // Build Ghost Placement Preview (in open slots c:4, r: 3,4,5)
+      function renderGhostBlocks() {
+        ghostGroup.innerHTML = '';
+        [3, 4, 5].forEach(r => {
+          const pos = getPos(4, r, 0.022);
+          const g = document.createElement('a-box');
+          g.setAttribute('position', pos.str);
+          g.setAttribute('width', '0.103');
+          g.setAttribute('height', '0.103');
+          g.setAttribute('depth', '0.02');
+          g.setAttribute('material', {
+            color: '#ffd600',
+            opacity: 0.45,
+            wireframe: false,
+            roughness: 0.2
+          });
+          g.setAttribute('animation', {
+            property: 'material.opacity',
+            from: 0.25,
+            to: 0.65,
+            dur: 800,
+            dir: 'alternate',
+            loop: true,
+            easing: 'easeInOutQuad'
+          });
+          ghostGroup.appendChild(g);
+        });
+      }
+
+      // Build Tray Pieces
+      let activePieceEntity = null;
+      function renderTray() {
+        trayLeft.innerHTML = '';
+        trayCenter.innerHTML = '';
+        trayRight.innerHTML = '';
+
+        // Left Piece: 2x2 Cyan Square
+        const leftCoords = [
+          { x: -0.045, y: 0.045 }, { x: 0.045, y: 0.045 },
+          { x: -0.045, y: -0.045 }, { x: 0.045, y: -0.045 }
+        ];
+        leftCoords.forEach(c => {
+          const b = document.createElement('a-box');
+          b.setAttribute('position', `${c.x} ${c.y} 0`);
+          b.setAttribute('width', '0.082');
+          b.setAttribute('height', '0.082');
+          b.setAttribute('depth', '0.03');
+          b.setAttribute('material', { src: blockTextures['cyan'], roughness: 0.3 });
+          trayLeft.appendChild(b);
+        });
+
+        // Center Active Piece: 3-Block Vertical Bar (Golden ⚡)
+        activePieceEntity = document.createElement('a-entity');
+        activePieceEntity.setAttribute('id', 'active-piece');
+        activePieceEntity.setAttribute('position', '0 0 0');
+
+        const centerCoords = [
+          { x: 0, y: 0.092 },
+          { x: 0, y: 0 },
+          { x: 0, y: -0.092 }
+        ];
+        centerCoords.forEach(c => {
+          const b = document.createElement('a-box');
+          b.setAttribute('position', `${c.x} ${c.y} 0`);
+          b.setAttribute('width', '0.088');
+          b.setAttribute('height', '0.088');
+          b.setAttribute('depth', '0.035');
+          b.setAttribute('material', { src: blockTextures['golden'], roughness: 0.2, metalness: 0.2 });
+          activePieceEntity.appendChild(b);
+        });
+
+        // Idle bounce animation on active piece
+        activePieceEntity.setAttribute('animation__idle', {
+          property: 'position',
+          from: '0 -0.01 0',
+          to: '0 0.02 0.03',
+          dur: 900,
+          dir: 'alternate',
+          loop: true,
+          easing: 'easeInOutQuad'
+        });
+
+        trayCenter.appendChild(activePieceEntity);
+
+        // Right Piece: Orange Corner Piece
+        const rightCoords = [
+          { x: -0.045, y: 0.045 },
+          { x: -0.045, y: -0.045 }, { x: 0.045, y: -0.045 }
+        ];
+        rightCoords.forEach(c => {
+          const b = document.createElement('a-box');
+          b.setAttribute('position', `${c.x} ${c.y} 0`);
+          b.setAttribute('width', '0.082');
+          b.setAttribute('height', '0.082');
+          b.setAttribute('depth', '0.03');
+          b.setAttribute('material', { src: blockTextures['orange'], roughness: 0.3 });
+          trayRight.appendChild(b);
+        });
+      }
+
+      renderBoardBlocks();
+      renderGhostBlocks();
+      renderTray();
+
+      // =========================================================================
+      // 4. INTERACTION & BLAST LOGIC
+      // =========================================================================
       const startScreen = document.querySelector('#start-screen');
       const startBtn = document.querySelector('#start-btn');
       const scene = document.querySelector('a-scene');
-      const hudPill = document.querySelector('#hud-pill');
-      const hudText = document.querySelector('#hud-text');
+      const gameHud = document.querySelector('#game-hud');
+      const hudStatusText = document.querySelector('#hud-status-text');
+      const currentScoreEl = document.querySelector('#current-score-val');
+      const comboBar = document.querySelector('#combo-bar-container');
+      const comboFill = document.querySelector('#combo-fill');
+      const comboText = document.querySelector('#combo-text');
+      const muteBtn = document.querySelector('#mute-btn');
+      const praiseOverlay = document.querySelector('#praise-overlay');
+      const praiseMain = document.querySelector('#praise-main-text');
+      const praiseSub = document.querySelector('#praise-sub-text');
       const target = document.querySelector('#keyboard-target');
       const tapPrompt = document.querySelector('#tap-prompt');
       const touchOverlay = document.querySelector('#touch-overlay');
-      const playerPiece = document.querySelector('#player-piece');
       const tourneyModal = document.querySelector('#tourney-modal');
-      const comboText = document.querySelector('#ar-combo-text');
       const claimBtn = document.querySelector('#claim-btn');
+      const replayBtn = document.querySelector('#replay-btn');
       const scanningGuide = document.querySelector('#scanning-guide');
       const fallbackTrigger = document.querySelector('#fallback-trigger');
       const errorModal = document.querySelector('#error-modal');
@@ -416,8 +1156,27 @@
 
       let hasPlayed = false;
 
-      // Combo Trigger
-      const triggerComboBlast = () => {
+      // Mute Toggle
+      muteBtn.addEventListener('click', () => {
+        sounds.muted = !sounds.muted;
+        muteBtn.innerText = sounds.muted ? '🔇' : '🔊';
+      });
+
+      // Score counter rollup animation
+      function rollScore(targetScore, duration = 800) {
+        let start = 0;
+        const startTime = performance.now();
+        function update(t) {
+          const progress = Math.min((t - startTime) / duration, 1);
+          const current = Math.floor(progress * targetScore);
+          currentScoreEl.innerText = current.toLocaleString();
+          if (progress < 1) requestAnimationFrame(update);
+        }
+        requestAnimationFrame(update);
+      }
+
+      // Combo Blast Sequence
+      function triggerComboBlast() {
         if (hasPlayed) return;
         hasPlayed = true;
 
@@ -425,51 +1184,146 @@
         if (fallbackTrigger) fallbackTrigger.style.display = 'none';
         tapPrompt.style.display = 'none';
         touchOverlay.style.display = 'none';
-        hudPill.style.display = 'none';
+        hudStatusText.innerText = 'TRIPLE CLEAR BLAST!';
 
-        playerPiece.setAttribute('animation', {
+        // Stop idle animation on tray piece
+        activePieceEntity.removeAttribute('animation__idle');
+
+        // 1. Swoop active piece into slot (col 4, center row 4)
+        // Position relative to board: col 4 x = (4 - 3.5) * 0.11 = 0.055, y = -(4 - 3.5) * 0.11 = -0.055
+        // Since tray-piece-center is at (0, -0.66, 0.06), the delta vector to board slot is:
+        const targetPos = `0.055 0.605 -0.04`;
+
+        activePieceEntity.setAttribute('animation', {
           property: 'position',
-          to: '0.25 0.1 0.05',
-          dur: 350,
+          to: targetPos,
+          dur: 340,
           easing: 'easeOutQuad'
         });
 
+        // 2. Arrival Impact
         setTimeout(() => {
-          comboText.setAttribute('value', 'COMBO x4!');
-          comboText.setAttribute('visible', 'true');
-          comboText.setAttribute('animation', {
+          ghostGroup.innerHTML = '';
+          sounds.playPlace();
+
+          // Elastic bounce
+          activePieceEntity.setAttribute('animation__bounce', {
             property: 'scale',
-            from: '1 1 1',
-            to: '2.4 2.4 2.4',
-            dur: 450,
+            from: '1.18 1.18 1.18',
+            to: '1 1 1',
+            dur: 200,
             easing: 'easeOutElastic'
           });
 
-          confetti({
-            particleCount: 110,
-            spread: 80,
-            origin: { y: 0.65 },
-            colors: ['#f59e0b', '#38bdf8', '#10b981', '#ffffff']
-          });
-
+          // 3. Line Complete Laser Flash
           setTimeout(() => {
-            tourneyModal.style.display = 'block';
-          }, 1100);
-        }, 350);
-      };
+            flashGroup.setAttribute('visible', 'true');
+
+            // Flash audio + Harmonic Chime
+            sounds.playClear(4);
+
+            // Pop Floating Praise Toast
+            praiseMain.innerText = 'UNBELIEVABLE!!';
+            praiseSub.innerText = '×4 COMBO BLAST • +1,450 PTS';
+            praiseOverlay.classList.add('show');
+
+            // Combo Bar Glow
+            comboBar.classList.add('active');
+            comboFill.style.width = '100%';
+            comboText.innerText = 'COMBO ×4 BLAST!';
+
+            // Roll Score counter
+            rollScore(1450, 900);
+
+            // Confetti Explosion
+            confetti({
+              particleCount: 120,
+              spread: 85,
+              origin: { y: 0.62 },
+              colors: ['#ffd600', '#00e5ff', '#ff007f', '#76ff03', '#ffffff']
+            });
+
+            // 4. Cleared Blocks Dissolve Animation
+            boardBlockElements.forEach(el => {
+              if (el.dataset.isCleared === 'true') {
+                el.setAttribute('animation__pop', {
+                  property: 'scale',
+                  to: '0 0 0',
+                  dur: 360,
+                  easing: 'easeInBack'
+                });
+                el.setAttribute('animation__rot', {
+                  property: 'rotation',
+                  to: `${(Math.random() - 0.5) * 120} ${(Math.random() - 0.5) * 120} 30`,
+                  dur: 360,
+                  easing: 'linear'
+                });
+              }
+            });
+
+            // Dissolve active piece blocks as part of cleared col/row
+            activePieceEntity.setAttribute('animation__clear', {
+              property: 'scale',
+              to: '0 0 0',
+              dur: 360,
+              delay: 80,
+              easing: 'easeInBack'
+            });
+
+            // Fade flash laser
+            setTimeout(() => {
+              flashGroup.setAttribute('visible', 'false');
+            }, 300);
+
+            // Hide praise overlay & show tournament prize card
+            setTimeout(() => {
+              praiseOverlay.classList.remove('show');
+              sounds.playFanfare();
+              tourneyModal.style.display = 'block';
+            }, 1250);
+
+          }, 160);
+
+        }, 340);
+      }
 
       touchOverlay.addEventListener('click', triggerComboBlast);
       if (fallbackTrigger) {
         fallbackTrigger.addEventListener('click', triggerComboBlast);
       }
 
-      // Start on user tap: initiates camera stream directly within user gesture
+      // Replay functionality
+      replayBtn.addEventListener('click', () => {
+        tourneyModal.style.display = 'none';
+        hasPlayed = false;
+        currentScoreEl.innerText = '0';
+        comboBar.classList.remove('active');
+        comboFill.style.width = '0%';
+        comboText.innerText = 'COMBO READY';
+        hudStatusText.innerText = 'BOARD LOCKED 🎯';
+        renderBoardBlocks();
+        renderGhostBlocks();
+        renderTray();
+        tapPrompt.style.display = 'block';
+        touchOverlay.style.display = 'block';
+      });
+
+      // Claim Bonus -> redirects into tournament
+      claimBtn.addEventListener('click', () => {
+        window.location.href = '/?source=desk_ar&bonus=combo_boost&ref=daily_rush';
+      });
+
+      // =========================================================================
+      // 5. START CAMERA ON GESTURE
+      // =========================================================================
       startBtn.addEventListener('click', async () => {
         startBtn.disabled = true;
-        startBtn.innerText = 'STARTING CAMERA...';
+        startBtn.innerText = 'INITIALIZING CAMERA...';
+
+        // Unlock audio context on user gesture
+        sounds.initCtx();
 
         try {
-          // Direct getUserMedia call to satisfy mobile Safari user gesture policy
           if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             try {
               const testStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -484,10 +1338,10 @@
             if (arSystem) {
               arSystem.start();
               startScreen.style.display = 'none';
-              hudPill.style.display = 'flex';
+              gameHud.style.display = 'flex';
               if (scanningGuide) scanningGuide.style.display = 'flex';
 
-              // Show fallback option if dark room or keyboard recognition takes >4s
+              // Show fallback manual trigger after 4s if room lighting is low
               setTimeout(() => {
                 if (!hasPlayed && fallbackTrigger) {
                   fallbackTrigger.style.display = 'block';
@@ -511,29 +1365,26 @@
         }
       });
 
-      // Target detected
+      // Target Tracking Events
       target.addEventListener('targetFound', () => {
         if (!hasPlayed) {
-          hudText.innerText = "KEYBOARD LOCKED 🎯";
-          hudPill.style.borderColor = "var(--green)";
+          hudStatusText.innerText = 'BOARD LOCKED 🎯';
           if (scanningGuide) scanningGuide.style.display = 'none';
           if (fallbackTrigger) fallbackTrigger.style.display = 'none';
-          tapPrompt.style.display = "block";
-          touchOverlay.style.display = "block";
+          tapPrompt.style.display = 'block';
+          touchOverlay.style.display = 'block';
         }
       });
 
       target.addEventListener('targetLost', () => {
         if (!hasPlayed) {
-          hudText.innerText = "POINT AT KEYBOARD SPACEBAR";
-          hudPill.style.borderColor = "rgba(245, 158, 11, 0.4)";
+          hudStatusText.innerText = 'AIM CAMERA AT KEYBOARD SPACEBAR';
           if (scanningGuide) scanningGuide.style.display = 'flex';
-          tapPrompt.style.display = "none";
-          touchOverlay.style.display = "none";
+          tapPrompt.style.display = 'none';
+          touchOverlay.style.display = 'none';
         }
       });
 
-      // Scene error listener
       scene.addEventListener('arError', (event) => {
         console.error('MindAR error:', event.detail);
         startScreen.style.display = 'none';
@@ -545,12 +1396,7 @@
       });
 
       scene.addEventListener('arReady', () => {
-        console.log('MindAR is ready.');
-        hudText.innerText = "POINT AT KEYBOARD SPACEBAR";
-      });
-
-      claimBtn.addEventListener('click', () => {
-        window.location.href = '/?source=desk_ar&bonus=combo_boost&ref=daily_rush';
+        hudStatusText.innerText = 'AIM CAMERA AT KEYBOARD SPACEBAR';
       });
     </script>
   </body>
