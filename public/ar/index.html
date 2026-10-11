@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#080911" />
+    <title>AR Combo Rush | Block Blast Tournament</title>
+
+    <!-- A-Frame & MindAR -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <!-- Confetti Particle Engine -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+      :root {
+        --bg-dark: #080911;
+        --card-bg: rgba(14, 17, 27, 0.92);
+        --gold: #f59e0b;
+        --gold-glow: rgba(245, 158, 11, 0.5);
+        --cyan: #38bdf8;
+        --cyan-glow: rgba(56, 189, 248, 0.4);
+        --green: #10b981;
+      }
+
+      * { box-sizing: border-box; }
+      body { 
+        margin: 0; 
+        overflow: hidden; 
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background-color: var(--bg-dark);
+        color: #fff;
+        user-select: none;
+      }
+
+      /* Top Tournament Status Pill */
+      #hud-pill {
+        position: absolute;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--card-bg);
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        padding: 8px 18px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: #e2e8f0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+        transition: all 0.3s ease;
+      }
+
+      .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background: var(--gold);
+        border-radius: 50%;
+        box-shadow: 0 0 8px var(--gold);
+        animation: blink 1.2s infinite;
+      }
+
+      @keyframes blink {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.8); }
+      }
+
+      /* 1-Tap Prompt Bar */
+      #tap-prompt {
+        display: none;
+        position: absolute;
+        bottom: 85px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: #080911;
+        font-weight: 900;
+        font-size: 15px;
+        letter-spacing: 0.5px;
+        padding: 14px 28px;
+        border-radius: 999px;
+        box-shadow: 0 0 25px var(--gold-glow);
+        z-index: 150;
+        pointer-events: none;
+        animation: floatPulse 1.2s infinite alternate ease-in-out;
+        white-space: nowrap;
+      }
+
+      @keyframes floatPulse {
+        0% { transform: translateX(-50%) translateY(0) scale(0.97); }
+        100% { transform: translateX(-50%) translateY(-6px) scale(1.03); }
+      }
+
+      /* Fullscreen tap catcher */
+      #touch-overlay {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 140;
+        display: none;
+        cursor: pointer;
+      }
+
+      /* Victory / Tournament Claim Modal */
+      #tourney-modal {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: var(--card-bg);
+        border: 1px solid rgba(245, 158, 11, 0.5);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        padding: 28px 24px;
+        border-radius: 20px;
+        text-align: center;
+        width: 86%;
+        max-width: 340px;
+        z-index: 200;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(245, 158, 11, 0.2);
+        animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      @keyframes modalPop {
+        0% { transform: translate(-50%, -45%) scale(0.85); opacity: 0; }
+        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      }
+
+      .crown-title {
+        font-size: 36px;
+        margin-bottom: 2px;
+      }
+
+      .combo-headline {
+        font-size: 26px;
+        font-weight: 900;
+        color: #fff;
+        margin: 0;
+        letter-spacing: 0.5px;
+      }
+
+      .points-pill {
+        display: inline-block;
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        color: var(--green);
+        font-weight: 800;
+        font-size: 16px;
+        padding: 4px 14px;
+        border-radius: 999px;
+        margin: 12px 0;
+      }
+
+      .perk-desc {
+        color: #94a3b8;
+        font-size: 13px;
+        line-height: 1.5;
+        margin: 0 0 20px 0;
+      }
+
+      .claim-btn {
+        background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
+        color: #080911;
+        border: none;
+        padding: 15px 24px;
+        font-size: 15px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+        border-radius: 12px;
+        cursor: pointer;
+        width: 100%;
+        box-shadow: 0 8px 20px var(--gold-glow);
+        transition: transform 0.1s ease;
+      }
+      .claim-btn:active { transform: scale(0.97); }
+    </style>
+  </head>
+  <body>
+    <!-- Top HUD Notification -->
+    <div id="hud-pill">
+      <span class="pulse-dot"></span>
+      <span id="hud-text">POINT AT KEYBOARD SPACEBAR</span>
+    </div>
+
+    <!-- Bottom Interactive Prompt -->
+    <div id="tap-prompt">⚡ TAP SCREEN TO COMBO BLAST!</div>
+    
+    <!-- Transparent Click Catcher -->
+    <div id="touch-overlay"></div>
+
+    <!-- Official Tournament Reward Modal -->
+    <div id="tourney-modal">
+      <div class="crown-title">👑</div>
+      <h2 class="combo-headline">COMBO x4 CLEARED!</h2>
+      <div class="points-pill">+1,450 BONUS POINTS</div>
+      <p class="perk-desc">
+        Your Desk Combo is locked in. Enter today's official prize run to compete for top spots on the leaderboard!
+      </p>
+      <button class="claim-btn" id="claim-btn">
+        ENTER TOURNAMENT NOW 🏆
+      </button>
+    </div>
+
+    <!-- MindAR Scene -->
+    <a-scene
+      mindar-image="imageTargetSrc: ./keyboard.mind; autoStart: true;"
+      color-space="sRGB"
+      renderer="colorManagement: true, physicallyCorrectLights"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
+    >
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <!-- Anchored above keyboard -->
+      <a-entity mindar-image-target="targetIndex: 0" id="keyboard-target">
+        <a-entity position="0 0.15 0" rotation="-30 0 0" id="board-root">
+          
+          <!-- Deep Dark Glass Board backing -->
+          <a-box position="0 0 -0.01" depth="0.02" height="1.0" width="1.0" 
+                 material="color: #080911; opacity: 0.92; metalness: 0.2; roughness: 0.5;"></a-box>
+          
+          <!-- Glowing Cyan Frame -->
+          <a-box position="0 0 0.01" depth="0.01" height="1.02" width="1.02" 
+                 material="color: #38bdf8; wireframe: true; opacity: 0.6;"></a-box>
+
+          <!-- Pre-laid blocks (Cyan & Dark Navy) -->
+          <a-box position="-0.25 0.1 0.05" depth="0.06" height="0.22" width="0.22" material="color: #38bdf8;"></a-box>
+          <a-box position="0.0 0.1 0.05" depth="0.06" height="0.22" width="0.22" material="color: #38bdf8;"></a-box>
+          <!-- Empty Slot at: (0.25, 0.1, 0.05) -->
+
+          <a-box position="-0.25 -0.15 0.05" depth="0.06" height="0.22" width="0.22" material="color: #6366f1;"></a-box>
+          <a-box position="0.0 -0.15 0.05" depth="0.06" height="0.22" width="0.22" material="color: #6366f1;"></a-box>
+          <a-box position="0.25 -0.15 0.05" depth="0.06" height="0.22" width="0.22" material="color: #6366f1;"></a-box>
+
+          <!-- The Floating Golden Player Piece -->
+          <a-entity id="player-piece" position="0 -0.7 0.1">
+            <a-box position="0 0 0" depth="0.08" height="0.22" width="0.22" 
+                   material="color: #f59e0b; emissive: #f59e0b; emissiveIntensity: 0.6;"></a-box>
+          </a-entity>
+
+          <!-- 3D Floating Combo Text -->
+          <a-text id="ar-combo-text" value="" align="center" position="0 0.7 0.1" 
+                  scale="1.2 1.2 1.2" color="#f59e0b" visible="false"></a-text>
+        </a-entity>
+      </a-entity>
+    </a-scene>
+
+    <script>
+      const target = document.querySelector('#keyboard-target');
+      const hudPill = document.querySelector('#hud-pill');
+      const hudText = document.querySelector('#hud-text');
+      const tapPrompt = document.querySelector('#tap-prompt');
+      const touchOverlay = document.querySelector('#touch-overlay');
+      const playerPiece = document.querySelector('#player-piece');
+      const tourneyModal = document.querySelector('#tourney-modal');
+      const comboText = document.querySelector('#ar-combo-text');
+      const claimBtn = document.querySelector('#claim-btn');
+
+      let hasPlayed = false;
+
+      // 1. Detection state handling
+      target.addEventListener('targetFound', () => {
+        if (!hasPlayed) {
+          hudText.innerText = "KEYBOARD LOCKED 🎯";
+          hudPill.style.borderColor = "var(--green)";
+          tapPrompt.style.display = "block";
+          touchOverlay.style.display = "block";
+        }
+      });
+
+      target.addEventListener('targetLost', () => {
+        if (!hasPlayed) {
+          hudText.innerText = "POINT AT KEYBOARD SPACEBAR";
+          hudPill.style.borderColor = "rgba(245, 158, 11, 0.35)";
+          tapPrompt.style.display = "none";
+          touchOverlay.style.display = "none";
+        }
+      });
+
+      // 2. The 1-Tap Combo Trigger
+      touchOverlay.addEventListener('click', () => {
+        if (hasPlayed) return;
+        hasPlayed = true;
+
+        tapPrompt.style.display = "none";
+        touchOverlay.style.display = "none";
+        hudPill.style.display = "none";
+
+        // Animate piece into empty slot (0.25, 0.1, 0.05)
+        playerPiece.setAttribute('animation', {
+          property: 'position',
+          to: '0.25 0.1 0.05',
+          dur: 350,
+          easing: 'easeOutQuad'
+        });
+
+        // Trigger explosion when it clicks into place
+        setTimeout(() => {
+          comboText.setAttribute('value', 'COMBO x4!');
+          comboText.setAttribute('visible', 'true');
+          comboText.setAttribute('animation', {
+            property: 'scale',
+            from: '1 1 1',
+            to: '2.4 2.4 2.4',
+            dur: 450,
+            easing: 'easeOutElastic'
+          });
+
+          // Gold and cyan tournament confetti
+          confetti({
+            particleCount: 90,
+            spread: 75,
+            origin: { y: 0.65 },
+            colors: ['#f59e0b', '#38bdf8', '#10b981', '#ffffff']
+          });
+
+          // Pop up the Tournament Prize Modal
+          setTimeout(() => {
+            tourneyModal.style.display = "block";
+          }, 1100);
+
+        }, 350);
+      });
+
+      // 3. Forward player to your main game with bonus params
+      claimBtn.addEventListener('click', () => {
+        // Points directly to your root game with the AR referral flags
+        window.location.href = '/?source=desk_ar&bonus=combo_boost&ref=daily_rush';
+      });
+    </script>
+  </body>
+</html>
