@@ -181,6 +181,20 @@
       }
       .claim-btn:active { transform: scale(0.97); }
 
+      /* Suppress MindAR built-in overlay spinners and broken default icons */
+      .mindar-ui-overlay {
+        display: none !important;
+      }
+      .mindar-ui-loading {
+        display: none !important;
+      }
+      .mindar-ui-scanning {
+        display: none !important;
+      }
+      .a-loader-title, .a-enter-vr {
+        display: none !important;
+      }
+
       /* Start Overlay / Camera Permission Gate */
       #start-overlay {
         position: fixed;
@@ -255,6 +269,71 @@
       }
       .start-btn:active { transform: scale(0.97); }
 
+      /* Scanning Reticle Overlay */
+      #scanning-guide {
+        display: none;
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 120;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .reticle-box {
+        width: 260px;
+        height: 140px;
+        border: 2px dashed rgba(245, 158, 11, 0.7);
+        border-radius: 18px;
+        box-shadow: 0 0 30px rgba(245, 158, 11, 0.2), inset 0 0 20px rgba(245, 158, 11, 0.1);
+        position: relative;
+        animation: reticlePulse 2s infinite ease-in-out;
+      }
+
+      @keyframes reticlePulse {
+        0%, 100% { transform: scale(1); border-color: rgba(245, 158, 11, 0.7); }
+        50% { transform: scale(1.04); border-color: rgba(56, 189, 248, 0.9); box-shadow: 0 0 35px rgba(56, 189, 248, 0.3); }
+      }
+
+      .reticle-label {
+        margin-top: 16px;
+        background: rgba(8, 9, 17, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(8px);
+        padding: 6px 16px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #e2e8f0;
+        letter-spacing: 0.5px;
+      }
+
+      /* Manual Skip / Force Unlock button if lighting/camera prevents pattern lock */
+      #fallback-trigger {
+        display: none;
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(14, 17, 27, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 8px 18px;
+        border-radius: 999px;
+        cursor: pointer;
+        z-index: 160;
+        backdrop-filter: blur(10px);
+        transition: all 0.2s ease;
+      }
+      #fallback-trigger:active {
+        color: #fff;
+        border-color: var(--gold);
+      }
+
       /* Camera Error / Permission Banner */
       #error-modal {
         display: none;
@@ -304,11 +383,20 @@
       <button onclick="window.location.reload()">RETRY</button>
     </div>
 
+    <!-- Live Scanning Frame Guide -->
+    <div id="scanning-guide">
+      <div class="reticle-box"></div>
+      <div class="reticle-label">FRAME KEYBOARD SPACEBAR HERE</div>
+    </div>
+
     <!-- Top HUD Notification -->
     <div id="hud-pill">
       <span class="pulse-dot"></span>
       <span id="hud-text">POINT AT KEYBOARD SPACEBAR</span>
     </div>
+
+    <!-- Fallback Manual Button (shown after 6 seconds of scanning if lighting is dark) -->
+    <button id="fallback-trigger">CAN'T LOCK? TAP HERE TO FORCE COMBO</button>
 
     <!-- Bottom Interactive Prompt -->
     <div id="tap-prompt">⚡ TAP SCREEN TO COMBO BLAST!</div>
@@ -331,10 +419,11 @@
 
     <!-- MindAR Scene -->
     <a-scene
-      mindar-image="imageTargetSrc: ./keyboard.mind; autoStart: false; filterMinCF: 0.0001; filterBeta: 0.001;"
+      mindar-image="imageTargetSrc: ./keyboard.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; filterMinCF: 0.001; filterBeta: 0.01; warmupTolerance: 2; missTolerance: 8;"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
       xr-mode-ui="enabled: false"
+      loading-screen="enabled: false"
       device-orientation-permission-ui="enabled: false"
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -456,6 +545,82 @@
       const startBtn = document.querySelector('#start-btn');
       const errorModal = document.querySelector('#error-modal');
       const errorMsg = document.querySelector('#error-msg');
+      const scanningGuide = document.querySelector('#scanning-guide');
+      const fallbackTrigger = document.querySelector('#fallback-trigger');
+
+      // Shared Combo Execution Function (triggered either by AR tap or manual fallback)
+      const triggerComboBlast = () => {
+        if (hasPlayed) return;
+        hasPlayed = true;
+
+        if (scanningGuide) scanningGuide.style.display = 'none';
+        if (fallbackTrigger) fallbackTrigger.style.display = 'none';
+        tapPrompt.style.display = "none";
+        touchOverlay.style.display = "none";
+        hudPill.style.display = "none";
+
+        // Animate piece into empty slot (0.25, 0.1, 0.05)
+        playerPiece.setAttribute('animation', {
+          property: 'position',
+          to: '0.25 0.1 0.05',
+          dur: 350,
+          easing: 'easeOutQuad'
+        });
+
+        // Trigger explosion when it clicks into place
+        setTimeout(() => {
+          comboText.setAttribute('value', 'COMBO x4!');
+          comboText.setAttribute('visible', 'true');
+          comboText.setAttribute('animation', {
+            property: 'scale',
+            from: '1 1 1',
+            to: '2.4 2.4 2.4',
+            dur: 450,
+            easing: 'easeOutElastic'
+          });
+
+          // Gold and cyan tournament confetti
+          confetti({
+            particleCount: 110,
+            spread: 80,
+            origin: { y: 0.65 },
+            colors: ['#f59e0b', '#38bdf8', '#10b981', '#ffffff']
+          });
+
+          // Pop up the Tournament Prize Modal
+          setTimeout(() => {
+            tourneyModal.style.display = "block";
+          }, 1100);
+
+        }, 350);
+      };
+
+      touchOverlay.addEventListener('click', triggerComboBlast);
+      if (fallbackTrigger) {
+        fallbackTrigger.addEventListener('click', triggerComboBlast);
+      }
+
+      // Detection state handling
+      target.addEventListener('targetFound', () => {
+        if (!hasPlayed) {
+          hudText.innerText = "KEYBOARD LOCKED 🎯";
+          hudPill.style.borderColor = "var(--green)";
+          if (scanningGuide) scanningGuide.style.display = "none";
+          if (fallbackTrigger) fallbackTrigger.style.display = "none";
+          tapPrompt.style.display = "block";
+          touchOverlay.style.display = "block";
+        }
+      });
+
+      target.addEventListener('targetLost', () => {
+        if (!hasPlayed) {
+          hudText.innerText = "POINT AT KEYBOARD SPACEBAR";
+          hudPill.style.borderColor = "rgba(245, 158, 11, 0.35)";
+          if (scanningGuide) scanningGuide.style.display = "flex";
+          tapPrompt.style.display = "none";
+          touchOverlay.style.display = "none";
+        }
+      });
 
       // User gesture trigger to start camera (Satisfies iOS Safari & Android Chrome permissions)
       startBtn.addEventListener('click', async () => {
@@ -463,14 +628,32 @@
         startBtn.innerHTML = '<span>STARTING CAMERA...</span>';
 
         try {
-          // If scene is already loaded, start system immediately
+          // Pre-request getUserMedia directly inside click event loop to guarantee permission prompt on iOS Safari
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+              const testStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+              // Release test track immediately so MindAR can claim it without device lock
+              testStream.getTracks().forEach(track => track.stop());
+            } catch (permErr) {
+              console.warn("Direct stream check prompted:", permErr);
+            }
+          }
+
           const startAR = () => {
             const arSystem = sceneEl.systems['mindar-image-system'];
             if (arSystem) {
               arSystem.start();
               startOverlay.style.display = 'none';
+              if (scanningGuide) scanningGuide.style.display = 'flex';
+              
+              // If user is in dark room or keyboard pattern takes time, offer manual 1-tap fallback
+              setTimeout(() => {
+                if (!hasPlayed && fallbackTrigger) {
+                  fallbackTrigger.style.display = 'block';
+                }
+              }, 4500);
             } else {
-              setTimeout(startAR, 150);
+              setTimeout(startAR, 100);
             }
           };
 
@@ -491,6 +674,7 @@
       sceneEl.addEventListener('arError', (event) => {
         console.error('MindAR error encountered:', event.detail);
         startOverlay.style.display = 'none';
+        if (scanningGuide) scanningGuide.style.display = 'none';
         errorModal.style.display = 'block';
         if (event.detail && event.detail.error) {
           errorMsg.innerText = 'Camera error: ' + event.detail.error;
@@ -500,11 +684,11 @@
       sceneEl.addEventListener('arReady', () => {
         console.log('MindAR tracking engine is ready and scanning.');
         hudText.innerText = "POINT AT KEYBOARD SPACEBAR";
+        if (scanningGuide) scanningGuide.style.display = "flex";
       });
 
       // 3. Forward player to your main game with bonus params
       claimBtn.addEventListener('click', () => {
-        // Points directly to your root game with the AR referral flags
         window.location.href = '/?source=desk_ar&bonus=combo_boost&ref=daily_rush';
       });
     </script>
