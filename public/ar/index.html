@@ -180,9 +180,130 @@
         transition: transform 0.1s ease;
       }
       .claim-btn:active { transform: scale(0.97); }
+
+      /* Start Overlay / Camera Permission Gate */
+      #start-overlay {
+        position: fixed;
+        inset: 0;
+        background: radial-gradient(circle at 50% 30%, #151a2d 0%, #080911 100%);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+      }
+
+      .start-card {
+        background: rgba(14, 17, 27, 0.85);
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-radius: 24px;
+        padding: 32px 24px;
+        max-width: 340px;
+        width: 100%;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 30px rgba(245, 158, 11, 0.15);
+      }
+
+      .start-badge {
+        display: inline-block;
+        background: rgba(245, 158, 11, 0.15);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        color: var(--gold);
+        font-weight: 800;
+        font-size: 11px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        padding: 4px 12px;
+        border-radius: 999px;
+        margin-bottom: 14px;
+      }
+
+      .start-title {
+        font-size: 24px;
+        font-weight: 900;
+        margin: 0 0 10px 0;
+        color: #fff;
+        letter-spacing: 0.5px;
+      }
+
+      .start-desc {
+        color: #94a3b8;
+        font-size: 14px;
+        line-height: 1.5;
+        margin: 0 0 24px 0;
+      }
+
+      .start-btn {
+        background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
+        color: #080911;
+        border: none;
+        padding: 16px 24px;
+        font-size: 16px;
+        font-weight: 900;
+        border-radius: 14px;
+        cursor: pointer;
+        width: 100%;
+        box-shadow: 0 8px 24px var(--gold-glow);
+        transition: transform 0.1s ease, filter 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .start-btn:active { transform: scale(0.97); }
+
+      /* Camera Error / Permission Banner */
+      #error-modal {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #111422;
+        border: 1px solid #ef4444;
+        border-radius: 18px;
+        padding: 24px;
+        text-align: center;
+        width: 86%;
+        max-width: 320px;
+        z-index: 10000;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+      }
+      #error-modal h3 { margin: 0 0 8px; color: #ef4444; font-size: 18px; }
+      #error-modal p { color: #cbd5e1; font-size: 13px; line-height: 1.5; margin: 0 0 16px; }
+      #error-modal button {
+        background: #ef4444; color: #fff; border: none; font-weight: bold;
+        padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%;
+      }
     </style>
   </head>
   <body>
+    <!-- Pre-launch Camera Start Screen -->
+    <div id="start-overlay">
+      <div class="start-card">
+        <div class="start-badge">DESK AR EXPERIENCE</div>
+        <div style="font-size: 42px; margin-bottom: 12px;">📱✨</div>
+        <h1 class="start-title">AR COMBO RUSH</h1>
+        <p class="start-desc">
+          Point your phone camera at your keyboard's spacebar area to unlock a 3D board combo & tournament perks!
+        </p>
+        <button class="start-btn" id="start-btn">
+          <span>START AR CAMERA</span>
+          <span style="font-size: 18px;">⚡</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Error notice if camera permissions are blocked -->
+    <div id="error-modal">
+      <h3>Camera Access Required</h3>
+      <p id="error-msg">Please allow camera permissions in your mobile browser settings to play the AR experience.</p>
+      <button onclick="window.location.reload()">RETRY</button>
+    </div>
+
     <!-- Top HUD Notification -->
     <div id="hud-pill">
       <span class="pulse-dot"></span>
@@ -210,10 +331,10 @@
 
     <!-- MindAR Scene -->
     <a-scene
-      mindar-image="imageTargetSrc: ./keyboard.mind; autoStart: true;"
+      mindar-image="imageTargetSrc: ./keyboard.mind; autoStart: false; filterMinCF: 0.0001; filterBeta: 0.001;"
       color-space="sRGB"
       renderer="colorManagement: true, physicallyCorrectLights"
-      vr-mode-ui="enabled: false"
+      xr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
     >
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -327,6 +448,58 @@
           }, 1100);
 
         }, 350);
+      });
+
+      // MindAR Scene & Overlay Elements
+      const sceneEl = document.querySelector('a-scene');
+      const startOverlay = document.querySelector('#start-overlay');
+      const startBtn = document.querySelector('#start-btn');
+      const errorModal = document.querySelector('#error-modal');
+      const errorMsg = document.querySelector('#error-msg');
+
+      // User gesture trigger to start camera (Satisfies iOS Safari & Android Chrome permissions)
+      startBtn.addEventListener('click', async () => {
+        startBtn.disabled = true;
+        startBtn.innerHTML = '<span>STARTING CAMERA...</span>';
+
+        try {
+          // If scene is already loaded, start system immediately
+          const startAR = () => {
+            const arSystem = sceneEl.systems['mindar-image-system'];
+            if (arSystem) {
+              arSystem.start();
+              startOverlay.style.display = 'none';
+            } else {
+              setTimeout(startAR, 150);
+            }
+          };
+
+          if (sceneEl.hasLoaded) {
+            startAR();
+          } else {
+            sceneEl.addEventListener('loaded', startAR, { once: true });
+          }
+        } catch (err) {
+          console.error("Failed to start AR camera:", err);
+          startOverlay.style.display = 'none';
+          errorModal.style.display = 'block';
+          errorMsg.innerText = err.message || "Failed to initialize camera.";
+        }
+      });
+
+      // Handle AR errors (permission denied, no camera device, etc.)
+      sceneEl.addEventListener('arError', (event) => {
+        console.error('MindAR error encountered:', event.detail);
+        startOverlay.style.display = 'none';
+        errorModal.style.display = 'block';
+        if (event.detail && event.detail.error) {
+          errorMsg.innerText = 'Camera error: ' + event.detail.error;
+        }
+      });
+
+      sceneEl.addEventListener('arReady', () => {
+        console.log('MindAR tracking engine is ready and scanning.');
+        hudText.innerText = "POINT AT KEYBOARD SPACEBAR";
       });
 
       // 3. Forward player to your main game with bonus params
