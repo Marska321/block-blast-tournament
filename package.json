@@ -5,15 +5,29 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build": "tsc && node scripts/check-server-runtime.mjs && vite build && node scripts/build-offline.mjs",
+    "preview": "vite preview",
+    "test": "tsx --test tests/*.test.ts",
+    "test:browser": "node --import tsx scripts/browser-check.mjs",
+    "claims": "node --env-file-if-exists=.env.local --import tsx scripts/claims.ts",
+    "updates": "node --env-file-if-exists=.env.local --env-file-if-exists=.env.push.local --import tsx scripts/updates.ts",
+    "push:keys": "node scripts/generate-push-keys.mjs",
+    "test:updates:browser": "node scripts/updates-browser-check.mjs"
   },
   "devDependencies": {
-    "@vercel/node": "^23.0.0",
-    "typescript": "^5.4.5",
-    "vite": "^5.2.11"
+    "@electric-sql/pglite": "0.5.10",
+    "@types/node": "24.10.0",
+    "@types/web-push": "3.6.4",
+    "playwright": "1.61.1",
+    "tsx": "4.22.4",
+    "typescript": "5.9.3",
+    "vite": "8.3.4"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.117.3"
+    "@supabase/supabase-js": "2.118.0",
+    "web-push": "3.6.7"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

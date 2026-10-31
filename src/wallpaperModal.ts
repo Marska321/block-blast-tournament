@@ -1,7 +1,10 @@
-import { wallpaperManager, WALLPAPER_PRESETS, isWallpaperUnlocked } from "./wallpaper";
+import {
+  wallpaperManager,
+  WALLPAPER_PRESETS,
+  isWallpaperUnlocked,
+} from "./wallpaper";
 import { getBlockStyle, BLOCK_STYLE_PRESETS } from "./gameFunctions";
 import { levelProgress } from "./levels";
-import { authManager } from "./auth";
 import {
   getPhotoRevealMode,
   setPhotoRevealMode,
@@ -63,24 +66,11 @@ export function createWallpaperModal() {
       <div class="wallpaper-section-title" style="margin-top: 14px;">✨ POPULAR BOARD THEMES</div>
       <div id="wallpaperPresetsGrid" class="wallpaper-presets-grid"></div>
 
-      <!-- Personalized Custom Photo Section (Exclusive to Verified Competitors) -->
+      <!-- Personalized Custom Photo Section (Exclusive to Players) -->
       <div class="wallpaper-section-title" style="margin-top: 14px;">📸 PERSONALIZED WALLPAPER</div>
       <div class="wallpaper-custom-card" id="customWallpaperContainer">
-        <!-- Verified vs Unverified content rendered dynamically -->
+        <!-- Photos stay on this device; no identity requirement. -->
         <input type="file" id="wallpaperFileInput" accept="image/*" style="display: none;" />
-
-        <div id="wallpaperVerifiedLockBox" class="verified-wallpaper-locked" style="display: none;">
-          <div class="verified-lock-header">
-            <span class="lock-big-icon">🔒</span>
-            <div class="verified-lock-info">
-              <strong>EXCLUSIVE TO VERIFIED COMPETITORS</strong>
-              <p>Personalized photo wallpapers are reserved for verified tournament contenders.</p>
-            </div>
-          </div>
-          <button id="openVerifyFromWallpaperBtn" class="modal-button verify-unlock-btn">
-            ☑️ Get Verified to Unlock Custom Wallpaper
-          </button>
-        </div>
 
         <div id="wallpaperUploadPrompt" class="upload-prompt-row" style="display: none;">
           <button id="uploadWallpaperBtn" class="modal-button upload-photo-btn">
@@ -121,13 +111,17 @@ export function createWallpaperModal() {
   document.body.appendChild(modalEl);
 
   // Setup listeners
-  document.getElementById("closeWallpaperBtn")?.addEventListener("click", () => {
-    hideWallpaperModal();
-  });
+  document
+    .getElementById("closeWallpaperBtn")
+    ?.addEventListener("click", () => {
+      hideWallpaperModal();
+    });
 
-  document.getElementById("applyAndCloseWallpaperBtn")?.addEventListener("click", () => {
-    hideWallpaperModal();
-  });
+  document
+    .getElementById("applyAndCloseWallpaperBtn")
+    ?.addEventListener("click", () => {
+      hideWallpaperModal();
+    });
 
   modalEl.addEventListener("click", (e) => {
     if (e.target === modalEl) {
@@ -135,7 +129,9 @@ export function createWallpaperModal() {
     }
   });
 
-  const fileInput = document.getElementById("wallpaperFileInput") as HTMLInputElement;
+  const fileInput = document.getElementById(
+    "wallpaperFileInput",
+  ) as HTMLInputElement;
   const uploadBtn = document.getElementById("uploadWallpaperBtn");
 
   uploadBtn?.addEventListener("click", () => {
@@ -164,13 +160,17 @@ export function createWallpaperModal() {
     }
   });
 
-  document.getElementById("removeCustomWallpaperBtn")?.addEventListener("click", () => {
-    wallpaperManager.removeCustomPhoto();
-    renderWallpaperModal();
-    showToast("Reset to Classic Navy theme");
-  });
+  document
+    .getElementById("removeCustomWallpaperBtn")
+    ?.addEventListener("click", () => {
+      wallpaperManager.removeCustomPhoto();
+      renderWallpaperModal();
+      showToast("Reset to Classic Navy theme");
+    });
 
-  const dimSlider = document.getElementById("wallpaperDimSlider") as HTMLInputElement;
+  const dimSlider = document.getElementById(
+    "wallpaperDimSlider",
+  ) as HTMLInputElement;
   dimSlider?.addEventListener("input", (e) => {
     const val = parseInt((e.target as HTMLInputElement).value, 10);
     const dimValEl = document.getElementById("wallpaperDimValue");
@@ -182,28 +182,35 @@ export function createWallpaperModal() {
 function renderWallpaperModal() {
   // 1. Dynamic Block Skin Status Preview (Updates display without clickable manual overrides)
   const activeSkin = getBlockStyle();
-  const activeSkinPreset = BLOCK_STYLE_PRESETS.find((p) => p.id === activeSkin) || BLOCK_STYLE_PRESETS[0];
+  const activeSkinPreset =
+    BLOCK_STYLE_PRESETS.find((p) => p.id === activeSkin) ||
+    BLOCK_STYLE_PRESETS[0];
   const activeSkinNameEl = document.getElementById("activeSkinName");
   const activeSkinIconEl = document.getElementById("activeSkinIcon");
-  const activeSkinPreviewCircleEl = document.getElementById("activeSkinPreviewCircle");
+  const activeSkinPreviewCircleEl = document.getElementById(
+    "activeSkinPreviewCircle",
+  );
 
   if (activeSkinNameEl) activeSkinNameEl.textContent = activeSkinPreset.name;
   if (activeSkinIconEl) activeSkinIconEl.textContent = activeSkinPreset.icon;
-  if (activeSkinPreviewCircleEl) activeSkinPreviewCircleEl.style.background = activeSkinPreset.previewColor;
+  if (activeSkinPreviewCircleEl)
+    activeSkinPreviewCircleEl.style.background = activeSkinPreset.previewColor;
 
   // Render showcase pills of all authentic skin variations
   const showcaseEl = document.getElementById("skinEvolutionShowcase");
   if (showcaseEl) {
-    showcaseEl.innerHTML = BLOCK_STYLE_PRESETS.filter((p) => p.id !== "flat").map((p) => {
-      const isCur = p.id === activeSkin;
-      return `
+    showcaseEl.innerHTML = BLOCK_STYLE_PRESETS.filter((p) => p.id !== "flat")
+      .map((p) => {
+        const isCur = p.id === activeSkin;
+        return `
         <div class="skin-showcase-item ${isCur ? "active" : ""}" title="${p.name}: ${p.desc}">
           <span class="skin-showcase-icon">${p.icon}</span>
           <span class="skin-showcase-name">${p.name}</span>
           ${isCur ? '<span class="skin-showcase-active-dot"></span>' : ""}
-        </div>
+        </button>
       `;
-    }).join("");
+      })
+      .join("");
   }
 
   // 2. Render Wallpaper & Theme Presets with Milestone Unlock Status
@@ -216,8 +223,8 @@ function renderWallpaperModal() {
       const isSelected = activeId === preset.id;
       const isUnlocked = isWallpaperUnlocked(preset, highestLevel);
       return `
-        <div class="wallpaper-chip ${isSelected ? "selected" : ""} ${!isUnlocked ? "locked" : ""}" 
-             data-theme-id="${preset.id}" 
+        <button type="button" class="wallpaper-chip ${isSelected ? "selected" : ""} ${!isUnlocked ? "locked" : ""}"
+             data-theme-id="${preset.id}"
              data-unlocked="${isUnlocked ? "true" : "false"}"
              title="${isUnlocked ? preset.name : preset.unlockRequirementText}">
           <div class="chip-preview-circle" style="background: ${isUnlocked ? preset.previewGradient : "#1e293b"}">
@@ -245,7 +252,9 @@ function renderWallpaperModal() {
         const preset = WALLPAPER_PRESETS.find((p) => p.id === tid);
 
         if (!isUnlocked) {
-          showToast(`🔒 Locked! ${preset ? preset.unlockRequirementText : "Reach milestones to unlock"}`);
+          showToast(
+            `🔒 Locked! ${preset ? preset.unlockRequirementText : "Reach milestones to unlock"}`,
+          );
           return;
         }
 
@@ -258,43 +267,28 @@ function renderWallpaperModal() {
     });
   }
 
-  // 3. Personalized Custom Photo Section (Exclusive to Verified Competitors)
-  const isVerified = authManager.isWhatsAppVerified();
-  const lockBox = document.getElementById("wallpaperVerifiedLockBox");
+  // 3. Personalized Custom Photo Section (Exclusive to Players)
   const uploadPrompt = document.getElementById("wallpaperUploadPrompt");
   const activeCustomRow = document.getElementById("wallpaperActiveCustomRow");
-  const customThumb = document.getElementById("customWallpaperThumb") as HTMLImageElement;
-  const dimSlider = document.getElementById("wallpaperDimSlider") as HTMLInputElement;
+  const customThumb = document.getElementById(
+    "customWallpaperThumb",
+  ) as HTMLImageElement;
+  const dimSlider = document.getElementById(
+    "wallpaperDimSlider",
+  ) as HTMLInputElement;
   const dimValEl = document.getElementById("wallpaperDimValue");
   const customImg = wallpaperManager.getCustomImageData();
 
-  const openVerifyBtn = document.getElementById("openVerifyFromWallpaperBtn");
-  if (openVerifyBtn) {
-    openVerifyBtn.onclick = () => {
-      hideWallpaperModal();
-      authManager.show();
-    };
-  }
-
-  if (!isVerified) {
-    // Competitor is unverified: locked behind verification
-    if (lockBox) lockBox.style.display = "flex";
+  if (customImg) {
     if (uploadPrompt) uploadPrompt.style.display = "none";
-    if (activeCustomRow) activeCustomRow.style.display = "none";
+    if (activeCustomRow) activeCustomRow.style.display = "flex";
+    if (customThumb) customThumb.src = customImg;
+    const dimPercent = Math.round(wallpaperManager.getDimming() * 100);
+    if (dimSlider) dimSlider.value = String(dimPercent);
+    if (dimValEl) dimValEl.textContent = `${dimPercent}%`;
   } else {
-    // Verified competitor: full access to personal wallpapers
-    if (lockBox) lockBox.style.display = "none";
-    if (customImg) {
-      if (uploadPrompt) uploadPrompt.style.display = "none";
-      if (activeCustomRow) activeCustomRow.style.display = "flex";
-      if (customThumb) customThumb.src = customImg;
-      const dimPercent = Math.round(wallpaperManager.getDimming() * 100);
-      if (dimSlider) dimSlider.value = String(dimPercent);
-      if (dimValEl) dimValEl.textContent = `${dimPercent}%`;
-    } else {
-      if (uploadPrompt) uploadPrompt.style.display = "flex";
-      if (activeCustomRow) activeCustomRow.style.display = "none";
-    }
+    if (uploadPrompt) uploadPrompt.style.display = "flex";
+    if (activeCustomRow) activeCustomRow.style.display = "none";
   }
 
   // 3. Render Photo Reveal & Glass Board Section
@@ -344,15 +338,19 @@ function renderWallpaperModal() {
           if (mode) {
             setPhotoRevealMode(mode);
             renderWallpaperModal();
-            showToast(`✨ ${mode === "all-glass" ? "Full Glass" : mode === "unmask" ? "Line Reveal" : "Classic Solid"} applied!`);
+            showToast(
+              `✨ ${mode === "all-glass" ? "Full Glass" : mode === "unmask" ? "Line Reveal" : "Classic Solid"} applied!`,
+            );
           }
         });
       });
 
-      document.getElementById("resetRevealBtn")?.addEventListener("click", () => {
-        (window as any).resetPhotoRevealProgress?.();
-        showToast("🔄 Board covered — ready to reveal again!");
-      });
+      document
+        .getElementById("resetRevealBtn")
+        ?.addEventListener("click", () => {
+          (window as any).resetPhotoRevealProgress?.();
+          showToast("🔄 Board covered — ready to reveal again!");
+        });
     }
   }
 }
@@ -368,4 +366,3 @@ export function hideWallpaperModal() {
   if (!modalEl) return;
   modalEl.classList.remove("active");
 }
-

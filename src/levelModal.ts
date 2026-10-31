@@ -1,3 +1,4 @@
+import { CASUAL_ONLY } from "./launch";
 let modalEl: HTMLElement | null = null;
 
 export function showLevelCompleteModal({
@@ -85,7 +86,7 @@ export function showLevelCompleteModal({
         </button>
       </div>
 
-      <div class="tournament-cross-banner" id="tourneyCrossBtn">
+      <div class="tournament-cross-banner" id="tourneyCrossBtn" ${CASUAL_ONLY ? "hidden" : ""}>
         <div class="cross-text">
           <span class="cross-tag">PRIZE EVENT</span>
           <span class="cross-title">🏆 Compete in the Weekly Tournament!</span>

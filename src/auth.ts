@@ -1,238 +1,131 @@
-import { chancesManager } from "./chances";
-
+import { dialog, text } from "./dialogs";
+import { existingSession, ensureGuest, api } from "./supabaseClient";
+import { storage } from "./storage";
 export interface PlayerProfile {
   id: string;
-  fullName?: string | null;
   nickname: string;
-  phone?: string | null;
   country: string;
-  verified?: boolean;
 }
-
 class AuthManager {
-  private userKey = "bbt_user_whatsapp";
-  private verifiedKey = "bbt_user_whatsapp_verified";
-  private playerIdKey = "bbt_player_uuid";
-  private nicknameKey = "bbt_player_nickname";
-  private fullNameKey = "bbt_player_fullname";
-  private modalEl: HTMLElement | null = null;
-  private currentSuccessCb: ((phone: string, rank: number) => void) | null = null;
-
-  public getPlayerId(): string {
-    let id = localStorage.getItem(this.playerIdKey);
-    if (!id) {
-      id = "p_" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(4);
-      localStorage.setItem(this.playerIdKey, id);
-    }
-    return id;
+  private id = "local";
+  constructor() {
+    for (const key of [
+      "bbt_user_whatsapp",
+      "bbt_user_whatsapp_verified",
+      "bbt_player_fullname",
+    ])
+      storage.remove(key);
+    void existingSession()
+      .then((s) => {
+        if (s) this.id = s.user.id;
+      })
+      .catch(() => {});
   }
-
-  public getProfile(): PlayerProfile {
-    const id = this.getPlayerId();
-    const phone = this.getUser();
-    const isVerified = this.isWhatsAppVerified();
-    const fullName = localStorage.getItem(this.fullNameKey) || null;
-    const savedNick = localStorage.getItem(this.nicknameKey);
-    const nickname = savedNick || (fullName ? fullName.split(" ")[0] : (phone ? `Player-${phone.slice(-4)}` : `Player-${id.slice(-4)}`));
+  getPlayerId() {
+    return this.id;
+  }
+  async refreshIdentity() {
+    const session = await existingSession();
+    if (session) this.id = session.user.id;
+    return this.id;
+  }
+  getProfile(): PlayerProfile {
     return {
-      id,
-      fullName,
-      nickname,
-      phone: phone || null,
-      country: "🇿🇦",
-      verified: isVerified,
+      id: this.id,
+      nickname: storage.get("bbt_player_nickname") || "Player",
+      country: "ZA",
     };
   }
-
-  public setNickname(nick: string) {
-    if (nick) localStorage.setItem(this.nicknameKey, nick.trim());
+  isLoggedIn() {
+    return this.id !== "local";
   }
-
-  public getUser(): string | null {
-    return localStorage.getItem(this.userKey);
+  isAdult() {
+    return storage.get("bb_pilot_adult") === "true";
   }
-
-  public isWhatsAppVerified(): boolean {
-    return localStorage.getItem(this.verifiedKey) === "true" || !!this.getUser();
+  setNickname(value: string) {
+    storage.set("bbt_player_nickname", value.trim().slice(0, 24));
   }
-
-  public setWhatsAppVerified(val: boolean = true) {
-    if (val) {
-      localStorage.setItem(this.verifiedKey, "true");
-      if (!this.getUser()) {
-        const id = this.getPlayerId();
-        localStorage.setItem(this.userKey, `Verified-${id.slice(-4)}`);
-      }
-    } else {
-      localStorage.removeItem(this.verifiedKey);
-    }
+  initAuthModal() {
+    /* Created on demand; no contact details collected. */
   }
-
-  public saveRegistration(fullName: string, nickname: string, phone: string) {
-    if (fullName) localStorage.setItem(this.fullNameKey, fullName.trim());
-    if (nickname) localStorage.setItem(this.nicknameKey, nickname.trim());
-    if (phone) localStorage.setItem(this.userKey, phone.trim());
-    this.setWhatsAppVerified(true);
-  }
-
-  public isLoggedIn(): boolean {
-    return this.isWhatsAppVerified();
-  }
-
-  public initAuthModal(onSuccess?: (whatsappPhone: string, rank: number) => void) {
-    if (onSuccess) this.currentSuccessCb = onSuccess;
-    if (this.modalEl) return;
-
-    this.modalEl = document.createElement("div");
-    this.modalEl.className = "modal-overlay auth-modal";
-    this.modalEl.id = "authModal";
-
-    this.modalEl.innerHTML = `
-      <div class="modal auth-card">
-        <button class="modal-close-corner" id="closeAuthModalBtn" aria-label="Close">✕</button>
-        <div class="whatsapp-badge">🛡️ OFFICIAL COMPETITOR REGISTRATION</div>
-        <h2 class="modal-title">Unlock Verified Pro Badge</h2>
-        <p class="auth-desc">
-          Register once to qualify for real cash and voucher payouts. Your nickname is shown on the leaderboard while your legal details remain strictly private.
-        </p>
-
-        <form id="authForm" class="auth-form">
-          <div class="auth-input-group">
-            <label class="auth-input-label" for="authFullName">👤 Full Name (Private — for prize payouts only)</label>
-            <input 
-              type="text" 
-              id="authFullName" 
-              placeholder="e.g. Sipho Khumalo" 
-              required 
-              autocomplete="name"
-              class="auth-input"
-            />
-          </div>
-
-          <div class="auth-input-group">
-            <label class="auth-input-label" for="authNickname">🎮 Leaderboard Nickname (Public Gamer Tag)</label>
-            <input 
-              type="text" 
-              id="authNickname" 
-              placeholder="e.g. ApexBlaster" 
-              required 
-              autocomplete="username"
-              class="auth-input"
-            />
-            <span class="auth-helper-text">This name and your verified checkmark will appear on the public leaderboard.</span>
-          </div>
-
-          <div class="auth-input-group">
-            <label class="auth-input-label" for="authPhone">📱 WhatsApp Number (For prize delivery & verification)</label>
-            <input 
-              type="tel" 
-              id="authPhone" 
-              placeholder="e.g. 082 123 4567" 
-              required 
-              autocomplete="tel"
-              class="auth-input"
-            />
-            <span class="auth-helper-text">Used to contact you when you win cash or vouchers. Never shared publicly.</span>
-          </div>
-
-          <button type="submit" class="auth-submit-btn">
-            🛡️ Save Profile & Get Verified Pro Badge
-          </button>
-        </form>
-
-        <button type="button" id="authSkipBtn" class="modal-skip-btn">
-          Play Anonymously (Skip verified badge)
-        </button>
-      </div>
-    `;
-
-    document.body.appendChild(this.modalEl);
-
-    const closeBtn = document.getElementById("closeAuthModalBtn");
-    closeBtn?.addEventListener("click", () => this.hide());
-
-    const skipBtn = document.getElementById("authSkipBtn");
-    skipBtn?.addEventListener("click", () => this.hide());
-
-    const form = document.getElementById("authForm") as HTMLFormElement;
-    form?.addEventListener("submit", (e) => {
+  show(onSuccess?: (phone: string, rank: number) => void) {
+    const { overlay, card } = dialog(
+      "authModal",
+      "Choose your public nickname",
+    );
+    card.append(
+      text(
+        "p",
+        "No email or phone number needed. Your guest account stays in this browser. Clearing browser data can lose access.",
+      ),
+    );
+    const form = document.createElement("form");
+    const label = text("label", "Nickname");
+    label.setAttribute("for", "pilotNickname");
+    const input = document.createElement("input");
+    input.id = "pilotNickname";
+    input.required = true;
+    input.maxLength = 24;
+    input.setAttribute("autocomplete", "nickname");
+    input.className = "auth-input";
+    input.value = this.getProfile().nickname;
+    const ageLabel = document.createElement("label");
+    const adult = document.createElement("input");
+    adult.type = "checkbox";
+    adult.checked = this.isAdult();
+    ageLabel.append(
+      adult,
+      document.createTextNode(
+        " I am 18 or older and eligible for official prizes.",
+      ),
+    );
+    const error = text("p", "");
+    error.setAttribute("role", "alert");
+    const submit = text("button", "Save nickname", "modal-button");
+    submit.setAttribute("type", "submit");
+    form.append(label, input, ageLabel, error, submit);
+    card.append(form);
+    form.onsubmit = (e) => {
       e.preventDefault();
-      const nameInput = document.getElementById("authFullName") as HTMLInputElement;
-      const nickInput = document.getElementById("authNickname") as HTMLInputElement;
-      const phoneInput = document.getElementById("authPhone") as HTMLInputElement;
-
-      const fullName = nameInput?.value?.trim() || "";
-      const nickname = nickInput?.value?.trim() || "Player";
-      const phone = phoneInput?.value?.trim() || "";
-
-      this.saveRegistration(fullName, nickname, phone);
-      this.hide();
-
-      // Show high-visibility feedback toast confirming verified status
-      this.showRegistrationSuccessToast(nickname);
-
-      if (this.currentSuccessCb) {
-        this.currentSuccessCb(phone, 1);
+      const nick = input.value.trim();
+      if (!nick || /[<>\u0000-\u001f]/.test(nick)) {
+        error.textContent = "Use a nickname without HTML.";
+        return;
       }
-    });
+      this.setNickname(nick);
+      storage.set("bb_pilot_adult", String(adult.checked));
+      overlay.classList.remove("active");
+      onSuccess?.("", 0);
+    };
   }
-
-  public showRegistrationSuccessToast(nickname: string) {
-    let toast = document.getElementById("authSuccessToast");
-    if (!toast) {
-      toast = document.createElement("div");
-      toast.id = "authSuccessToast";
-      toast.className = "auth-success-toast";
-      document.body.appendChild(toast);
-    }
-    toast.innerHTML = `
-      <div class="toast-content">
-        <span class="toast-badge">☑️ VERIFIED PRO</span>
-        <span class="toast-title">Profile Registered Successfully!</span>
-        <span class="toast-sub">Welcome <strong>${nickname}</strong> — your scores and prizes are now linked!</span>
-      </div>
-    `;
-    toast.classList.add("show");
-    setTimeout(() => {
-      toast?.classList.remove("show");
-    }, 4000);
+  hide() {
+    document.getElementById("authModal")?.classList.remove("active");
   }
-
-  public show(onSuccess?: (whatsappPhone: string, rank: number) => void) {
-    if (onSuccess) this.currentSuccessCb = onSuccess;
-    if (!this.modalEl) {
-      this.initAuthModal();
+  async openReferralShare() {
+    try {
+      await ensureGuest();
+      const id = await this.refreshIdentity();
+      await api("profile", {
+        method: "POST",
+        body: { nickname: this.getProfile().nickname, adult: this.isAdult() },
+      });
+      const link = new URL(location.pathname, location.origin);
+      link.searchParams.set("ref", id);
+      const url = `https://wa.me/?text=${encodeURIComponent(`Play Blok Blaster by Playables with me: ${link}. Referrals qualify by account after an accepted game; daily bonus limits apply.`)}`;
+      const { card } = dialog("referralShare", "Invite a friend");
+      const linkButton = document.createElement("a");
+      linkButton.href = url;
+      linkButton.target = "_blank";
+      linkButton.rel = "noopener noreferrer";
+      linkButton.className = "modal-button";
+      linkButton.textContent = "Open WhatsApp to share your invite";
+      card.append(linkButton);
+    } catch (error) {
+      const { card } = dialog("referralError", "Invite link unavailable");
+      card.append(
+        text("p", error instanceof Error ? error.message : "Please try again."),
+      );
     }
-    this.modalEl?.classList.add("active");
-
-    const profile = this.getProfile();
-    const nameInput = document.getElementById("authFullName") as HTMLInputElement;
-    const nickInput = document.getElementById("authNickname") as HTMLInputElement;
-    const phoneInput = document.getElementById("authPhone") as HTMLInputElement;
-
-    if (nameInput && profile.fullName) nameInput.value = profile.fullName;
-    if (nickInput && profile.nickname && !profile.nickname.startsWith("Player-")) {
-      nickInput.value = profile.nickname;
-    }
-    if (phoneInput && profile.phone && !profile.phone.startsWith("Verified-")) {
-      phoneInput.value = profile.phone;
-    }
-
-    setTimeout(() => {
-      if (nameInput && !nameInput.value) nameInput.focus();
-      else if (nickInput && !nickInput.value) nickInput.focus();
-      else if (phoneInput && !phoneInput.value) phoneInput.focus();
-    }, 200);
-  }
-
-  public hide() {
-    this.modalEl?.classList.remove("active");
-  }
-
-  public openReferralShare() {
-    const url = chancesManager.getWhatsAppShareUrl("this week's Sponsor Grand Prize");
-    window.open(url, "_blank");
   }
 }
-
 export const authManager = new AuthManager();

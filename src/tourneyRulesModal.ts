@@ -1,4 +1,4 @@
-import { tournamentConfigManager } from "./tournamentConfig";
+import { getSelectedEvent } from "./supabaseClient";
 
 let rulesModalEl: HTMLElement | null = null;
 
@@ -14,14 +14,14 @@ export function createTourneyRulesModal() {
       <button class="modal-close-corner" id="closeRulesModalBtn" aria-label="Close">✕</button>
       <div class="modal-badge rules-badge">PROMOTIONAL SKILL TOURNAMENT</div>
       <h2 class="modal-title rules-title">Official Tournament Rules & Terms</h2>
-      <p id="rulesModalSubtitle" class="rules-subtitle">Partner Cash & Voucher Competition</p>
+      <p id="rulesModalSubtitle" class="rules-subtitle">Select an available event to see its details.</p>
 
       <div class="rules-scroll-area">
         <div class="rules-item">
           <span class="rules-icon">🧠</span>
           <div class="rules-text">
-            <strong>1. Skill-Based Contest (Not Gambling)</strong>
-            <p>This competition is 100% free-to-enter using daily tickets. Results depend entirely on player puzzle skill, spatial strategy, and move efficiency. No purchase is required or will increase your chances of winning.</p>
+            <strong>1. Free Entry</strong>
+            <p>Entry uses free daily tickets. Scores depend on legal placements and each run's adaptive deal. No purchase is needed or changes ticket limits.</p>
           </div>
         </div>
 
@@ -29,7 +29,7 @@ export function createTourneyRulesModal() {
           <span class="rules-icon">👤</span>
           <div class="rules-text">
             <strong>2. Eligibility & Age</strong>
-            <p>Open to all participants residing in the promotion territory. Players under 18 years of age are welcome to compete but must have parental or legal guardian consent to receive cash payouts or retail vouchers.</p>
+            <p>Official tournament entries and prizes are for adults aged 18 or older. Younger players can play Classic and Levels. Adult eligibility is checked manually before a prize is approved.</p>
           </div>
         </div>
 
@@ -37,7 +37,7 @@ export function createTourneyRulesModal() {
           <span class="rules-icon">🏆</span>
           <div class="rules-text">
             <strong>3. Leaderboard & Tie-Breakers</strong>
-            <p>Rankings are based on your highest verified single-run score during the active tournament period. In the event of identical high scores, the run recorded with the earlier server timestamp takes the higher position.</p>
+            <p>Rankings are provisional and based on your highest server-accepted single-run score during the active tournament period. In the event of identical high scores, the run recorded with the earlier server timestamp takes the higher position.</p>
           </div>
         </div>
 
@@ -45,7 +45,7 @@ export function createTourneyRulesModal() {
           <span class="rules-icon">💬</span>
           <div class="rules-text">
             <strong>4. Prize Verification & Claim Window</strong>
-            <p>Qualified leaderboard players must tap "Claim Prize Spot" and connect via official WhatsApp within <strong>48 hours</strong> of the tournament close. Payouts (EFT, eWallet, or digital vouchers) are fulfilled within 3–5 business days following identity confirmation.</p>
+            <p>Eligible adults must request a claim after the event closes and send the claim code to the configured tournament WhatsApp number within <strong>48 hours</strong> of the tournament close. Opening WhatsApp does not approve a claim. The operator reviews the result, age eligibility, and duplicate claims before handling any payout manually.</p>
           </div>
         </div>
 
@@ -53,7 +53,7 @@ export function createTourneyRulesModal() {
           <span class="rules-icon">🛡️</span>
           <div class="rules-text">
             <strong>5. Anti-Cheat & Fair Play Policy</strong>
-            <p>Every match is audited with anti-cheat cryptographic telemetry. Any use of bots, screen-scraping, automation, or multi-account exploitation will immediately void all scores and disqualify the user.</p>
+            <p>Official results are calculated from a server-validated move replay. This establishes legal moves, not a unique human identity. Automated play and multiple-account abuse may disqualify a result during manual winner review.</p>
           </div>
         </div>
 
@@ -86,15 +86,21 @@ export function showTourneyRulesModal() {
   createTourneyRulesModal();
   if (!rulesModalEl) return;
 
-  const conf = tournamentConfigManager.getConfig();
+  const event = getSelectedEvent();
   const subEl = document.getElementById("rulesModalSubtitle");
   const disclaimerEl = document.getElementById("rulesSponsorDisclaimer");
 
   if (subEl) {
-    subEl.textContent = `${conf.sponsorName} ${conf.tournamentTitle} • ${conf.totalPrizePool} Pool`;
+    subEl.textContent = event
+      ? `${event.title} • ${event.is_demo ? "Demo — no prizes" : event.prize_pool}`
+      : "No official event is selected. Classic and Levels are available.";
   }
   if (disclaimerEl) {
-    disclaimerEl.textContent = `Prizes are provided in partnership with ${conf.sponsorName}. The tournament organizers reserve the right to audit suspicious activity and enforce fair play rules for all participants.`;
+    disclaimerEl.textContent = event?.is_demo
+      ? "This is a demo event. There are no real prizes, claims, or payouts."
+      : event
+        ? `Prizes follow the selected event's published details. Claims close 48 hours after the event ends. Results and adult eligibility require manual review before approval.`
+        : "Prize details will be published with each event. No prize is currently advertised here.";
   }
 
   rulesModalEl.classList.add("active");

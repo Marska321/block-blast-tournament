@@ -1,198 +1,261 @@
--- ============================================================
--- Block Blast Tournament - Supabase PostgreSQL Schema
--- ============================================================
-
--- Enable pgcrypto for UUID generation
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
--- 1. Players Table
-CREATE TABLE IF NOT EXISTS public.players (
-  id TEXT PRIMARY KEY,                       -- Unique client ID (UUID or phone hash)
-  full_name TEXT,                            -- Legal / real name for prize verification (private)
-  nickname TEXT NOT NULL,                    -- Public handle for leaderboards
-  phone TEXT,                                -- WhatsApp contact number for payouts
-  country TEXT DEFAULT '🇿🇦',
-  is_verified BOOLEAN DEFAULT FALSE,         -- Verified Competitor Badge status
-  stars_total INT DEFAULT 0,
-  best_tourney_score INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 2. Tournaments Table (Multi-partner, daily & weekly prize cups)
-CREATE TABLE IF NOT EXISTS public.tournaments (
-  id TEXT PRIMARY KEY,                       -- Slug e.g. 'weekly_partner_cup', 'daily_dash'
-  sponsor_name TEXT NOT NULL,                -- e.g. 'Vodacom', 'Nike', 'Partner'
-  title TEXT NOT NULL,                       -- e.g. 'Weekly Cash Cup'
-  tagline TEXT,                              -- e.g. 'Official Cash Prize Sponsor'
-  prize_pool TEXT NOT NULL,                  -- e.g. 'R500' or 'R200 Voucher'
-  currency_symbol TEXT DEFAULT 'R',
-  prize_tiers JSONB NOT NULL DEFAULT '[]'::jsonb, -- Array of [{ rank, reward, badgeClass }]
-  wallpaper_url TEXT,                        -- Custom background / sponsor logo
-  frequency TEXT DEFAULT 'weekly' CHECK (frequency IN ('daily', 'weekly', 'special')),
-  is_active BOOLEAN DEFAULT TRUE,
-  starts_at TIMESTAMPTZ DEFAULT NOW(),
-  ends_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 3. Tournament Scores Table (Partitioned by tournament_id)
-CREATE TABLE IF NOT EXISTS public.tournament_scores (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tournament_id TEXT REFERENCES public.tournaments(id) ON DELETE SET NULL DEFAULT 'weekly_partner_cup',
-  player_id TEXT REFERENCES public.players(id) ON DELETE CASCADE,
-  nickname TEXT NOT NULL,
-  country TEXT DEFAULT '🇿🇦',
-  mode TEXT NOT NULL CHECK (mode IN ('classic', 'blitz', 'levels')),
-  score INT NOT NULL CHECK (score >= 0),
-  lines_cleared INT DEFAULT 0,
-  moves_placed INT DEFAULT 0,
-  max_combo INT DEFAULT 0,
-  seed BIGINT,
-  verified BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Ensure tournament_id column exists if table was previously created without it
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-      AND table_name = 'tournament_scores' 
-      AND column_name = 'tournament_id'
-  ) THEN
-    ALTER TABLE public.tournament_scores 
-      ADD COLUMN tournament_id TEXT REFERENCES public.tournaments(id) ON DELETE SET NULL DEFAULT 'weekly_partner_cup';
-  END IF;
-
-  -- Ensure full_name column exists on players if previously created without it
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-      AND table_name = 'players' 
-      AND column_name = 'full_name'
-  ) THEN
-    ALTER TABLE public.players ADD COLUMN full_name TEXT;
-  END IF;
+-- Secure pilot schema. Apply through the versioned migration, not the legacy seed.
+-- Fresh pilot tables deliberately do not import legacy identities or scores.
+DO $$ DECLARE t text; policy_name text; BEGIN
+  FOREACH t IN ARRAY ARRAY['players','tournaments','tournament_scores','player_progress','referrals'] LOOP
+    IF to_regclass('public.' || t) IS NOT NULL THEN
+      EXECUTE format('REVOKE ALL ON TABLE public.%I FROM PUBLIC, anon, authenticated', t);
+      EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+      FOR policy_name IN SELECT policyname FROM pg_policies WHERE schemaname='public' AND tablename=t LOOP
+        EXECUTE format('DROP POLICY %I ON public.%I',policy_name,t);
+      END LOOP;
+    END IF;
+  END LOOP;
 END $$;
 
--- 3. Player Level Progress Table (Levels 1-60)
-CREATE TABLE IF NOT EXISTS public.player_progress (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  player_id TEXT REFERENCES public.players(id) ON DELETE CASCADE,
-  level INT NOT NULL CHECK (level >= 1 AND level <= 100),
-  stars INT NOT NULL CHECK (stars >= 0 AND stars <= 3),
-  best_score INT DEFAULT 0,
-  completed BOOLEAN DEFAULT TRUE,
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(player_id, level)
+CREATE TABLE public.pilot_profiles (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  nickname varchar(24) NOT NULL CHECK (length(trim(nickname)) BETWEEN 1 AND 24),
+  adult_attested boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE public.pilot_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), cup_id text NOT NULL,
+  title text NOT NULL, prize_pool text NOT NULL, prize_tiers jsonb NOT NULL DEFAULT '[]',
+  prize_slots integer NOT NULL DEFAULT 3 CHECK (prize_slots BETWEEN 1 AND 20),
+  starts_at timestamptz NOT NULL, ends_at timestamptz NOT NULL,
+  state text NOT NULL DEFAULT 'draft' CHECK (state IN ('draft','open','closed')),
+  is_demo boolean NOT NULL DEFAULT true,
+  CHECK (ends_at > starts_at), UNIQUE(cup_id, starts_at)
+);
+CREATE TABLE public.pilot_wallets (
+  user_id uuid NOT NULL REFERENCES public.pilot_profiles(user_id) ON DELETE CASCADE,
+  day date NOT NULL, base_used integer NOT NULL DEFAULT 0 CHECK (base_used BETWEEN 0 AND 3),
+  bonus_earned integer NOT NULL DEFAULT 0 CHECK (bonus_earned BETWEEN 0 AND 2),
+  bonus_used integer NOT NULL DEFAULT 0 CHECK (bonus_used BETWEEN 0 AND bonus_earned),
+  PRIMARY KEY(user_id,day)
+);
+CREATE TABLE public.pilot_runs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES public.pilot_profiles(user_id) ON DELETE CASCADE,
+  request_id uuid NOT NULL, event_id uuid REFERENCES public.pilot_events(id),
+  kind text NOT NULL CHECK (kind IN ('tournament','levels')),
+  level integer CHECK (level BETWEEN 1 AND 60), seed bigint NOT NULL CHECK(seed BETWEEN 0 AND 4294967295),
+  engine_version text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL,
+  status text NOT NULL DEFAULT 'started' CHECK(status IN ('started','accepted')),
+  result jsonb, actions jsonb, replay_hash text, accepted_at timestamptz,
+  CHECK ((kind='tournament' AND event_id IS NOT NULL AND level IS NULL) OR (kind='levels' AND event_id IS NULL AND level IS NOT NULL)),
+  UNIQUE(user_id,request_id)
+);
+CREATE INDEX pilot_runs_standings ON public.pilot_runs(event_id,status,accepted_at,id);
+CREATE INDEX pilot_runs_user ON public.pilot_runs(user_id,status);
+CREATE TABLE public.pilot_progress (
+  user_id uuid NOT NULL REFERENCES public.pilot_profiles(user_id) ON DELETE CASCADE,
+  level integer NOT NULL CHECK(level BETWEEN 1 AND 60),
+  stars integer NOT NULL CHECK(stars BETWEEN 1 AND 3), best_score integer NOT NULL CHECK(best_score>=0),
+  PRIMARY KEY(user_id,level)
+);
+CREATE TABLE public.pilot_referrals (
+  referred_id uuid PRIMARY KEY REFERENCES public.pilot_profiles(user_id) ON DELETE CASCADE,
+  referrer_id uuid NOT NULL REFERENCES public.pilot_profiles(user_id) ON DELETE CASCADE,
+  attributed_at timestamptz NOT NULL DEFAULT now(), completed_at timestamptz, credited boolean NOT NULL DEFAULT false,
+  CHECK(referred_id<>referrer_id)
+);
+CREATE TABLE public.pilot_claims (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_id uuid NOT NULL REFERENCES public.pilot_events(id),
+  user_id uuid NOT NULL REFERENCES public.pilot_profiles(user_id), code_hash text NOT NULL,
+  code_expires_at timestamptz NOT NULL, requested_at timestamptz NOT NULL DEFAULT now(),
+  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+  phone text CHECK(phone ~ '^\+[1-9][0-9]{7,14}$'), full_name text,
+  reviewed_at timestamptz, review_reason text, adult_reviewed boolean NOT NULL DEFAULT false,
+  result_reviewed boolean NOT NULL DEFAULT false,
+  UNIQUE(event_id,user_id)
+);
+CREATE UNIQUE INDEX pilot_claim_phone_once ON public.pilot_claims(event_id,phone) WHERE status='approved';
+CREATE TABLE public.pilot_rate_limits (
+  key text NOT NULL, window_start timestamptz NOT NULL, count integer NOT NULL,
+  PRIMARY KEY(key,window_start)
 );
 
--- 4. Verified Referrals Table (Fraud-proof friend invitations)
-CREATE TABLE IF NOT EXISTS public.referrals (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  referrer_id TEXT REFERENCES public.players(id) ON DELETE CASCADE,
-  referred_id TEXT UNIQUE REFERENCES public.players(id) ON DELETE CASCADE,
-  first_game_score INT NOT NULL DEFAULT 0,
-  status TEXT DEFAULT 'completed' CHECK (status IN ('pending', 'completed')),
-  reward_claimed BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  completed_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- No direct client mutations. Authenticated includes guest users: ownership is mandatory.
+DO $$ DECLARE t text; BEGIN
+  FOREACH t IN ARRAY ARRAY['pilot_profiles','pilot_events','pilot_wallets','pilot_runs','pilot_progress','pilot_referrals','pilot_claims','pilot_rate_limits'] LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',t);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM PUBLIC, anon, authenticated',t);
+    EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role',t);
+  END LOOP;
+END $$;
+GRANT SELECT ON public.pilot_profiles, public.pilot_wallets, public.pilot_progress TO authenticated;
+CREATE POLICY pilot_profile_owner ON public.pilot_profiles FOR SELECT TO authenticated USING((SELECT auth.uid())=user_id);
+CREATE POLICY pilot_wallet_owner ON public.pilot_wallets FOR SELECT TO authenticated USING((SELECT auth.uid())=user_id);
+CREATE POLICY pilot_progress_owner ON public.pilot_progress FOR SELECT TO authenticated USING((SELECT auth.uid())=user_id);
+-- Claims include private contact details and remain accessible only through the API/owner projection.
 
--- Indexes for blazing fast Top 100 queries & referral attribution
-CREATE INDEX IF NOT EXISTS idx_scores_tourney_rank ON public.tournament_scores(tournament_id, score DESC, created_at ASC);
-CREATE INDEX IF NOT EXISTS idx_scores_mode_score ON public.tournament_scores(mode, score DESC, created_at ASC);
-CREATE INDEX IF NOT EXISTS idx_scores_weekly ON public.tournament_scores(created_at DESC, score DESC);
-CREATE INDEX IF NOT EXISTS idx_players_stars ON public.players(stars_total DESC, updated_at ASC);
-CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON public.referrals(referrer_id);
-CREATE INDEX IF NOT EXISTS idx_referrals_unclaimed ON public.referrals(referrer_id, reward_claimed);
+CREATE FUNCTION public.pilot_rate_limit(p_key text,p_limit integer,p_seconds integer) RETURNS boolean
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE n integer; BEGIN
+  INSERT INTO public.pilot_rate_limits(key,window_start,count)
+  VALUES(p_key,to_timestamp(floor(extract(epoch FROM now())/p_seconds)*p_seconds),1)
+  ON CONFLICT(key,window_start) DO UPDATE SET count=public.pilot_rate_limits.count+1 RETURNING count INTO n;
+  RETURN n<=p_limit;
+END $$;
 
--- Row Level Security (RLS)
-ALTER TABLE public.tournaments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.players ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tournament_scores ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.player_progress ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
+CREATE FUNCTION public.pilot_profile(p_user uuid,p_nickname text,p_adult boolean) RETURNS void
+LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$
+  INSERT INTO public.pilot_profiles(user_id,nickname,adult_attested) VALUES(p_user,trim(p_nickname),p_adult)
+  ON CONFLICT(user_id) DO UPDATE SET nickname=EXCLUDED.nickname,adult_attested=public.pilot_profiles.adult_attested OR EXCLUDED.adult_attested;
+$$;
 
--- Public Read Policies (Everyone can view tournaments & leaderboards)
-CREATE POLICY "Public Read Tournaments" ON public.tournaments FOR SELECT USING (true);
-CREATE POLICY "Public Read Players" ON public.players FOR SELECT USING (true);
-CREATE POLICY "Public Read Tournament Scores" ON public.tournament_scores FOR SELECT USING (true);
-CREATE POLICY "Public Read Player Progress" ON public.player_progress FOR SELECT USING (true);
-CREATE POLICY "Public Read Referrals" ON public.referrals FOR SELECT USING (true);
+CREATE FUNCTION public.pilot_start(p_user uuid,p_request uuid,p_event uuid,p_kind text,p_level integer,p_seed bigint,p_version text,p_nickname text,p_adult boolean)
+RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE r public.pilot_runs; e public.pilot_events; w public.pilot_wallets; d date := (now() AT TIME ZONE 'Africa/Johannesburg')::date; expiry timestamptz;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_user::text,0));
+  SELECT * INTO r FROM public.pilot_runs WHERE user_id=p_user AND request_id=p_request;
+  IF FOUND THEN
+    IF r.kind<>p_kind OR r.event_id IS DISTINCT FROM p_event OR r.level IS DISTINCT FROM p_level THEN RAISE EXCEPTION 'request_conflict'; END IF;
+    RETURN to_jsonb(r);
+  END IF;
+  IF p_kind NOT IN ('tournament','levels') OR p_version<>'pilot-1' THEN RAISE EXCEPTION 'invalid_session'; END IF;
+  IF length(trim(p_nickname)) NOT BETWEEN 1 AND 24 THEN RAISE EXCEPTION 'invalid_nickname'; END IF;
+  INSERT INTO public.pilot_profiles(user_id,nickname,adult_attested) VALUES(p_user,trim(p_nickname),p_adult)
+  ON CONFLICT(user_id) DO UPDATE SET nickname=EXCLUDED.nickname,adult_attested=public.pilot_profiles.adult_attested OR EXCLUDED.adult_attested;
+  expiry := now()+interval '48 hours';
+  IF p_kind='tournament' THEN
+    IF NOT p_adult THEN RAISE EXCEPTION 'adult_required'; END IF;
+    SELECT * INTO e FROM public.pilot_events WHERE id=p_event FOR SHARE;
+    IF NOT FOUND OR e.state<>'open' OR now()<e.starts_at OR now()>=e.ends_at THEN RAISE EXCEPTION 'event_unavailable'; END IF;
+    expiry := least(expiry,e.ends_at);
+    INSERT INTO public.pilot_wallets(user_id,day) VALUES(p_user,d) ON CONFLICT DO NOTHING;
+    SELECT * INTO w FROM public.pilot_wallets WHERE user_id=p_user AND day=d FOR UPDATE;
+    IF w.base_used<3 THEN UPDATE public.pilot_wallets SET base_used=base_used+1 WHERE user_id=p_user AND day=d;
+    ELSIF w.bonus_used<w.bonus_earned THEN UPDATE public.pilot_wallets SET bonus_used=bonus_used+1 WHERE user_id=p_user AND day=d;
+    ELSE RAISE EXCEPTION 'tickets_exhausted'; END IF;
+  ELSE
+    IF p_event IS NOT NULL OR p_level IS NULL OR p_level NOT BETWEEN 1 AND 60 THEN RAISE EXCEPTION 'invalid_level'; END IF;
+    IF p_level>1 AND NOT EXISTS(SELECT 1 FROM public.pilot_progress WHERE user_id=p_user AND level=p_level-1) THEN RAISE EXCEPTION 'level_locked'; END IF;
+  END IF;
+  INSERT INTO public.pilot_runs(user_id,request_id,event_id,kind,level,seed,engine_version,expires_at)
+  VALUES(p_user,p_request,p_event,p_kind,p_level,p_seed,p_version,expiry) RETURNING * INTO r;
+  RETURN to_jsonb(r);
+END $$;
 
--- Allow anonymous inserts through backend API / anon client
-CREATE POLICY "Public Insert Players" ON public.players FOR INSERT WITH CHECK (true);
-CREATE POLICY "Public Update Players" ON public.players FOR UPDATE USING (true);
-CREATE POLICY "Public Insert Scores" ON public.tournament_scores FOR INSERT WITH CHECK (true);
-CREATE POLICY "Public Upsert Progress" ON public.player_progress FOR ALL USING (true);
-CREATE POLICY "Public Upsert Referrals" ON public.referrals FOR ALL USING (true);
-
--- Initial Tournaments Seed Data
-INSERT INTO public.tournaments (id, sponsor_name, title, tagline, prize_pool, currency_symbol, frequency, is_active, prize_tiers)
-VALUES
-  (
-    'pre_season_cup',
-    'Pre-Season',
-    'Inaugural Voucher Cup',
-    'Airtime & Electricity Vouchers',
-    'R250 Vouchers',
-    'R',
-    'weekly',
-    true,
-    '[{"rank":"1ST","reward":"R100 Airtime / Electricity","badgeClass":"gold-tier"},{"rank":"2ND","reward":"R50 Airtime / Electricity","badgeClass":"silver-tier"},{"rank":"3RD","reward":"R25 Airtime Voucher","badgeClass":"bronze-tier"},{"rank":"TOP 10","reward":"Verified Pro Badge ☑️","badgeClass":"top10-tier"}]'::jsonb
-  ),
-  (
-    'weekly_partner_cup',
-    'Official Partner',
-    'Weekly Prize Cup',
-    'Official Cash Prize Sponsor',
-    'R500',
-    'R',
-    'weekly',
-    true,
-    '[{"rank":"1ST","reward":"R250","badgeClass":"gold-tier"},{"rank":"2ND","reward":"R150","badgeClass":"silver-tier"},{"rank":"3RD","reward":"R100","badgeClass":"bronze-tier"},{"rank":"TOP 10","reward":"Share","badgeClass":"top10-tier"}]'::jsonb
-  ),
-  (
-    'daily_flash_dash',
-    'Speed Partner',
-    'Daily Flash Dash',
-    'Fast-paced Daily Voucher Run',
-    'R150',
-    'R',
-    'daily',
-    true,
-    '[{"rank":"1ST","reward":"R100 Voucher","badgeClass":"gold-tier"},{"rank":"2ND","reward":"R50 Voucher","badgeClass":"silver-tier"},{"rank":"TOP 5","reward":"Voucher Draw","badgeClass":"top10-tier"}]'::jsonb
+CREATE FUNCTION public.pilot_standings(p_event uuid,p_user uuid DEFAULT NULL)
+RETURNS TABLE(rank bigint,user_id uuid,nickname text,score integer,accepted_at timestamptz,run_id uuid)
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path='' AS $$
+  WITH best AS (
+    SELECT DISTINCT ON(r.user_id) r.user_id,(r.result->>'score')::integer AS score,r.accepted_at,r.id
+    FROM public.pilot_runs r WHERE r.event_id=p_event AND r.status='accepted'
+    ORDER BY r.user_id,(r.result->>'score')::integer DESC,r.accepted_at,r.id
   )
-ON CONFLICT (id) DO NOTHING;
+  SELECT * FROM (
+    SELECT row_number() OVER(ORDER BY b.score DESC,b.accepted_at,b.id) AS rank,b.user_id,p.nickname::text,b.score,b.accepted_at,b.id AS run_id
+    FROM best b JOIN public.pilot_profiles p ON p.user_id=b.user_id
+  ) ranked WHERE p_user IS NULL OR ranked.user_id=p_user ORDER BY rank;
+$$;
 
--- Initial seed data (Top competitive leaderboard baseline)
-INSERT INTO public.players (id, nickname, country, best_tourney_score, stars_total)
-VALUES
-  ('seed-1', 'ApexBlaster', '🇿🇦', 9840, 60),
-  ('seed-2', 'GridMaster99', '🇬🇧', 7650, 58),
-  ('seed-3', 'BlockQueen', '🇺🇸', 6120, 54),
-  ('seed-4', 'PixelCrusher', '🇳🇬', 4980, 48),
-  ('seed-5', 'ComboDemon', '🇰🇪', 3840, 42),
-  ('seed-6', 'CyberTetra', '🇩🇪', 3100, 39),
-  ('seed-7', 'NovaPlayer', '🇦🇺', 2450, 35),
-  ('seed-8', 'ShadowDrop', '🇿🇦', 1980, 30),
-  ('seed-9', 'LuckyStrike', '🇨🇦', 1420, 24),
-  ('seed-10', 'NeonRider', '🇮🇳', 950, 18)
-ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.tournament_scores (tournament_id, player_id, nickname, country, mode, score, lines_cleared, moves_placed, max_combo, verified)
-VALUES
-  ('weekly_partner_cup', 'seed-1', 'ApexBlaster', '🇿🇦', 'classic', 9840, 48, 86, 9, true),
-  ('weekly_partner_cup', 'seed-2', 'GridMaster99', '🇬🇧', 'classic', 7650, 38, 72, 7, true),
-  ('weekly_partner_cup', 'seed-3', 'BlockQueen', '🇺🇸', 'classic', 6120, 31, 58, 6, true),
-  ('weekly_partner_cup', 'seed-4', 'PixelCrusher', '🇳🇬', 'classic', 4980, 26, 49, 5, true),
-  ('weekly_partner_cup', 'seed-5', 'ComboDemon', '🇰🇪', 'classic', 3840, 21, 39, 4, true),
-  ('weekly_partner_cup', 'seed-6', 'CyberTetra', '🇩🇪', 'classic', 3100, 18, 34, 4, true),
-  ('weekly_partner_cup', 'seed-7', 'NovaPlayer', '🇦🇺', 'classic', 2450, 15, 29, 3, true),
-  ('weekly_partner_cup', 'seed-8', 'ShadowDrop', '🇿🇦', 'classic', 1980, 12, 24, 3, true),
-  ('weekly_partner_cup', 'seed-9', 'LuckyStrike', '🇨🇦', 'classic', 1420, 9, 19, 2, true),
-  ('weekly_partner_cup', 'seed-10', 'NeonRider', '🇮🇳', 'classic', 950, 6, 14, 2, true)
-ON CONFLICT DO NOTHING;
+CREATE FUNCTION public.pilot_board(p_event uuid,p_user uuid DEFAULT NULL) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path='' AS $$
+  WITH standings AS MATERIALIZED (SELECT * FROM public.pilot_standings(p_event)),
+  stars AS MATERIALIZED (
+    SELECT row_number() OVER(ORDER BY sum(g.stars) DESC,g.user_id) AS rank,g.user_id,p.nickname,sum(g.stars)::integer AS stars
+    FROM public.pilot_progress g JOIN public.pilot_profiles p ON p.user_id=g.user_id GROUP BY g.user_id,p.nickname
+  )
+  SELECT jsonb_build_object(
+    'tournament',coalesce((SELECT jsonb_agg(to_jsonb(s) ORDER BY s.rank) FROM (SELECT * FROM standings ORDER BY rank LIMIT 20) s),'[]'::jsonb),
+    'me',(SELECT to_jsonb(s) FROM standings s WHERE s.user_id=p_user),
+    'stars',coalesce((SELECT jsonb_agg(to_jsonb(s) ORDER BY s.rank) FROM (SELECT * FROM stars ORDER BY rank LIMIT 20) s),'[]'::jsonb),
+    'myStars',coalesce((SELECT s.stars FROM stars s WHERE s.user_id=p_user),0),'maxStars',180
+  );
+$$;
+
+CREATE FUNCTION public.pilot_accept(p_user uuid,p_run uuid,p_hash text,p_result jsonb,p_actions jsonb DEFAULT '[]'::jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE r public.pilot_runs; ref public.pilot_referrals; d date := (now() AT TIME ZONE 'Africa/Johannesburg')::date; credited_count integer;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_user::text,0));
+  SELECT * INTO r FROM public.pilot_runs WHERE id=p_run AND user_id=p_user FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'session_not_found'; END IF;
+  IF r.status='accepted' THEN
+    IF r.replay_hash<>p_hash THEN RAISE EXCEPTION 'replay_conflict'; END IF;
+    RETURN jsonb_build_object('scoreId',r.id,'score',(r.result->>'score')::integer,'stars',(r.result->>'stars')::integer,'acceptedAt',r.accepted_at,'duplicate',true);
+  END IF;
+  IF now()>=r.expires_at THEN RAISE EXCEPTION 'session_expired'; END IF;
+  IF r.kind='tournament' THEN
+    PERFORM 1 FROM public.pilot_events WHERE id=r.event_id AND state='open' AND starts_at<=now() AND ends_at>now() FOR SHARE;
+    IF NOT FOUND THEN RAISE EXCEPTION 'event_unavailable'; END IF;
+  END IF;
+  IF (p_result->>'score')::integer<0 OR p_result->>'engineVersion'<>r.engine_version THEN RAISE EXCEPTION 'invalid_result'; END IF;
+  IF r.kind='levels' THEN
+    IF NOT coalesce((p_result->>'completed')::boolean,false) THEN RAISE EXCEPTION 'level_incomplete'; END IF;
+    INSERT INTO public.pilot_progress(user_id,level,stars,best_score) VALUES(p_user,r.level,(p_result->>'stars')::integer,(p_result->>'score')::integer)
+    ON CONFLICT(user_id,level) DO UPDATE SET stars=greatest(public.pilot_progress.stars,EXCLUDED.stars),best_score=greatest(public.pilot_progress.best_score,EXCLUDED.best_score);
+  END IF;
+  UPDATE public.pilot_runs SET status='accepted',result=p_result,actions=p_actions,replay_hash=p_hash,accepted_at=now() WHERE id=r.id RETURNING * INTO r;
+  IF (p_result->>'score')::integer>=100 THEN
+    SELECT * INTO ref FROM public.pilot_referrals WHERE referred_id=p_user FOR UPDATE;
+    IF FOUND AND ref.completed_at IS NULL THEN
+      INSERT INTO public.pilot_wallets(user_id,day,bonus_earned) VALUES(ref.referrer_id,d,1)
+      ON CONFLICT(user_id,day) DO UPDATE SET bonus_earned=public.pilot_wallets.bonus_earned+1 WHERE public.pilot_wallets.bonus_earned<2
+      RETURNING bonus_earned INTO credited_count;
+      UPDATE public.pilot_referrals SET completed_at=now(),credited=(credited_count IS NOT NULL) WHERE referred_id=p_user;
+    END IF;
+  END IF;
+  RETURN jsonb_build_object('scoreId',r.id,'score',(r.result->>'score')::integer,'stars',(r.result->>'stars')::integer,'acceptedAt',r.accepted_at,'duplicate',false);
+END $$;
+
+CREATE FUNCTION public.pilot_attribute_referral(p_user uuid,p_referrer uuid) RETURNS boolean
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_user::text,0));
+  IF p_user=p_referrer OR NOT EXISTS(SELECT 1 FROM public.pilot_profiles WHERE user_id=p_referrer)
+    OR EXISTS(SELECT 1 FROM public.pilot_runs WHERE user_id=p_user AND status='accepted') THEN RETURN false; END IF;
+  INSERT INTO public.pilot_referrals(referred_id,referrer_id) VALUES(p_user,p_referrer) ON CONFLICT DO NOTHING;
+  RETURN FOUND;
+END $$;
+
+CREATE FUNCTION public.pilot_create_claim(p_user uuid,p_event uuid,p_hash text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE e public.pilot_events; c public.pilot_claims; place bigint; BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended(p_user::text,0));
+  SELECT * INTO e FROM public.pilot_events WHERE id=p_event;
+  IF NOT FOUND OR e.is_demo OR e.state='draft' OR now()<e.ends_at OR now()>=e.ends_at+interval '48 hours' THEN RAISE EXCEPTION 'claim_window_closed'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM public.pilot_profiles WHERE user_id=p_user AND adult_attested) THEN RAISE EXCEPTION 'adult_required'; END IF;
+  SELECT s.rank INTO place FROM public.pilot_standings(p_event) s WHERE s.user_id=p_user;
+  IF place IS NULL OR place>e.prize_slots THEN RAISE EXCEPTION 'not_eligible'; END IF;
+  SELECT * INTO c FROM public.pilot_claims WHERE event_id=p_event AND user_id=p_user FOR UPDATE;
+  IF FOUND AND c.status<>'pending' THEN RAISE EXCEPTION 'claim_already_reviewed'; END IF;
+  INSERT INTO public.pilot_claims(event_id,user_id,code_hash,code_expires_at)
+  VALUES(p_event,p_user,p_hash,least(now()+interval '30 minutes',e.ends_at+interval '48 hours'))
+  ON CONFLICT(event_id,user_id) DO UPDATE SET code_hash=EXCLUDED.code_hash,code_expires_at=EXCLUDED.code_expires_at
+  RETURNING * INTO c;
+  RETURN jsonb_build_object('claimId',c.id,'status',c.status,'expiresAt',c.code_expires_at);
+END $$;
+
+CREATE FUNCTION public.pilot_review_claim(p_claim uuid,p_hash text,p_phone text,p_name text,p_adult boolean,p_result_reviewed boolean,p_decision text,p_reason text)
+RETURNS text LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE c public.pilot_claims; e public.pilot_events; place bigint; BEGIN
+  SELECT * INTO c FROM public.pilot_claims WHERE id=p_claim FOR UPDATE;
+  IF NOT FOUND OR c.status<>'pending' THEN RAISE EXCEPTION 'claim_unavailable'; END IF;
+  IF c.code_hash<>p_hash OR now()>=c.code_expires_at THEN RAISE EXCEPTION 'claim_code_invalid'; END IF;
+  SELECT * INTO e FROM public.pilot_events WHERE id=c.event_id FOR SHARE;
+  IF e.is_demo OR e.state='draft' OR now()<e.ends_at OR now()>=e.ends_at+interval '48 hours' THEN RAISE EXCEPTION 'claim_window_closed'; END IF;
+  SELECT s.rank INTO place FROM public.pilot_standings(c.event_id) s WHERE s.user_id=c.user_id;
+  IF place IS NULL OR place>e.prize_slots THEN RAISE EXCEPTION 'not_eligible'; END IF;
+  IF p_decision NOT IN ('approved','rejected') OR length(trim(p_reason))<5 THEN RAISE EXCEPTION 'review_reason_required'; END IF;
+  IF p_phone IS NULL OR p_phone !~ '^\+[1-9][0-9]{7,14}$' THEN RAISE EXCEPTION 'invalid_phone'; END IF;
+  IF p_decision='approved' AND (NOT p_adult OR NOT p_result_reviewed OR length(trim(coalesce(p_name,'')))<2) THEN RAISE EXCEPTION 'review_required'; END IF;
+  IF p_decision='approved' AND EXISTS(SELECT 1 FROM public.pilot_claims WHERE event_id=c.event_id AND phone=p_phone AND status='approved' AND id<>c.id) THEN RAISE EXCEPTION 'duplicate_phone_review'; END IF;
+  UPDATE public.pilot_claims SET status=p_decision,phone=p_phone,full_name=p_name,reviewed_at=now(),review_reason=p_reason,
+    adult_reviewed=p_adult,result_reviewed=p_result_reviewed WHERE id=c.id;
+  RETURN p_decision;
+END $$;
+
+-- PostgreSQL grants function EXECUTE to PUBLIC by default: revoke each pilot RPC explicitly.
+DO $$ DECLARE f record; BEGIN
+  FOR f IN SELECT p.oid::regprocedure AS signature FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='public' AND p.proname LIKE 'pilot_%' LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated',f.signature);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role',f.signature);
+  END LOOP;
+END $$;

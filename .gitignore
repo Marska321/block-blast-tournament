@@ -7,3 +7,10 @@ dist-ssr
 .env.development
 .DS_Store
 *.log
+output/playwright/
+.supabase/
+.vercel/
+supabase/.temp/
+
+.vercel
+.env*

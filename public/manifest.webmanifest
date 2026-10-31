@@ -1,0 +1,14 @@
+{
+  "id": "/",
+  "name": "Blok Blaster by Playables",
+  "short_name": "Blok Blaster",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#18313a",
+  "theme_color": "#18313a",
+  "icons": [
+    { "src": "/push-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/push-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

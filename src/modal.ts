@@ -1,9 +1,9 @@
-import { estimateRank, renderLeaderboardHTML } from "./leaderboard";
-import { authManager } from "./auth";
+import { dialog, text } from "./dialogs";
 import { chancesManager } from "./chances";
-import { tournamentConfigManager } from "./tournamentConfig";
-import { getVerifiedBadgeHtml } from "./verifiedBadge";
-
+import { leaderboardManager } from "./leaderboard";
+import { getSubmission, retrySubmission } from "./session";
+import { CASUAL_ONLY, CLASSIC_RANKED_ENABLED, appendChannelFollow } from "./launch";
+import { appendClassicSubmission, openClassicEntry } from "./classic";
 export interface PerformanceStats {
   efficiencyGrade: string;
   strategicGrade: string;
@@ -11,303 +11,108 @@ export interface PerformanceStats {
   totalLines: number;
   maxCombo: number;
 }
-
-let savedRestartCb: (() => void) | null = null;
-let savedClassicCb: (() => void) | null = null;
-let modalEl: HTMLElement | null = null;
-
-export function createGameOverModal({
-  onRestart,
-  onGoToClassic,
-}: {
+let restart = () => {};
+let classic = () => {};
+export function createGameOverModal(options: {
   onRestart: () => void;
   onGoToClassic: () => void;
 }) {
-  savedRestartCb = onRestart;
-  savedClassicCb = onGoToClassic;
-  if (modalEl) return;
-
-  modalEl = document.createElement("div");
-  modalEl.className = "modal-overlay";
-  modalEl.id = "gameOverModal";
-
-  modalEl.innerHTML = `
-    <div class="modal tournament-modal">
-      <div id="modalBadge" class="modal-badge">WEEKLY TOURNAMENT</div>
-      <h2 class="modal-title">Game Over</h2>
-      <div id="modalReasonPill" class="gameover-reason-pill">
-        🚫 Out of moves — No space for remaining bricks!
-      </div>
-      
-      <div class="modal-score-card">
-        <span class="score-label">FINAL SCORE</span>
-        <span id="modalScore" class="score-value">0</span>
-        <div id="modalRankTeaser" class="rank-teaser">Estimated: Top 10</div>
-      </div>
-
-      <div id="modalPerfCard" class="modal-perf-card" style="display: none;">
-        <div class="perf-chips-row">
-          <div class="perf-chip">
-            <span class="perf-chip-label">EFFICIENCY</span>
-            <span id="modalEfficiencyGrade" class="perf-chip-val">A</span>
-          </div>
-          <div class="perf-chip">
-            <span class="perf-chip-label">STRATEGY</span>
-            <span id="modalStrategyGrade" class="perf-chip-val">S</span>
-          </div>
-        </div>
-        <div class="perf-stats-row">
-          <span>Cleared: <strong id="modalLinesCleared">0</strong> lines</span>
-          <span>Max Combo: <strong id="modalMaxCombo">0x</strong></span>
-        </div>
-      </div>
-
-      <div id="chancesStatusBox" class="chances-box">
-        <span id="chancesLabel" class="chances-text">🎟️ 3 of 3 tickets available today</span>
-      </div>
-
-      <div id="modalLeaderboardContainer"></div>
-
-      <!-- Verified Competitor Card (Rendered when already registered) -->
-      <div id="modalVerifiedStatusCard" class="verified-status-card" style="display: none;">
-        <div class="verified-card-header">
-          <span class="verified-pill">
-            ${getVerifiedBadgeHtml()} VERIFIED COMPETITOR
-          </span>
-          <span id="modalVerifiedPlayerName" class="verified-player-name">Player</span>
-        </div>
-        <p class="verified-card-sub">
-          Official prize entry recorded! All your scores automatically sync to the leaderboard — zero WhatsApp prompts needed.
-        </p>
-      </div>
-
-      <!-- Action Buttons -->
-      <button class="modal-button verify-register-btn" id="claimSpotBtn">
-        🛡️ Register Profile to Claim Official Prizes & Badges
-      </button>
-
-      <button class="modal-button share-invite-btn" id="inviteFriendsBtn" style="display: none;">
-        📲 Invite Friend on WhatsApp (+1 Ticket When They Play)
-      </button>
-
-      <div class="modal-button-row">
-        <button class="modal-secondary-button" id="restartBtn">
-          🎟️ Next Ticket Run
-        </button>
-        <button class="modal-secondary-button" id="classicModeBtn">
-          🎯 Play Classic (Free)
-        </button>
-      </div>
-
-      <button id="modalSupportLink" class="verified-support-link" type="button" style="display: none;">
-        Need help or have questions? Contact Tournament WhatsApp Support ↗
-      </button>
-    </div>
-  `;
-
-  document.body.appendChild(modalEl);
-
-  document.getElementById("restartBtn")?.addEventListener("click", () => {
-    hideModal();
-    onRestart();
-  });
-
-  document.getElementById("classicModeBtn")?.addEventListener("click", () => {
-    hideModal();
-    onGoToClassic();
-  });
-
-  document.getElementById("inviteFriendsBtn")?.addEventListener("click", () => {
-    authManager.openReferralShare();
-  });
-
-  document.getElementById("claimSpotBtn")?.addEventListener("click", () => {
-    authManager.show(() => {
-      // When registration completes, immediately refresh the modal to show the Verified Pro card!
-      const score = parseInt(
-        document.getElementById("modalScore")?.textContent?.replace(/,/g, "") || "0",
-        10
-      );
-      showModal(score, "tournament");
-    });
-  });
-
-  document.getElementById("modalSupportLink")?.addEventListener("click", () => {
-    const profile = authManager.getProfile();
-    const conf = tournamentConfigManager.getConfig();
-    const msg = encodeURIComponent(
-      `Hi! I'm verified player ${profile.nickname} (ID: ${profile.id}) playing the ${conf.sponsorName} ${conf.tournamentTitle}. I have a question about prizes:`
-    );
-    const waUrl = `https://wa.me/?text=${msg}`;
-    const win = window.open(waUrl, "_blank");
-    if (!win || win.closed || typeof win.closed === "undefined") {
-      window.location.href = waUrl;
-    }
-  });
+  restart = options.onRestart;
+  classic = options.onGoToClassic;
 }
-
 export function hideModal() {
-  if (!modalEl) return;
-  modalEl.classList.remove("active");
+  document.getElementById("gameOverModal")?.classList.remove("active");
 }
-
 export function showModal(
   score: number,
-  modeName: string = "Classic",
-  perf?: PerformanceStats
+  modeName: string,
+  perf?: PerformanceStats,
+  rescue?: { onRevive: () => void; available: boolean; used: boolean },
+  ranked?: { onFinish?: () => void },
 ) {
-  if (!modalEl) {
-    createGameOverModal({
-      onRestart: savedRestartCb || (() => window.location.reload()),
-      onGoToClassic: savedClassicCb || (() => window.location.reload()),
-    });
+  const { card } = dialog("gameOverModal", "Run finished");
+  const official = modeName.toLowerCase().includes("tournament");
+  card.append(
+    text(
+      "p",
+      official
+        ? "Official run — subject to server acceptance"
+        : ranked ? "Classic — daily ranked run · no prizes" : "Classic — casual record only",
+    ),
+    text("p", `${score.toLocaleString()} points`, "score-value"),
+  );
+  if (perf)
+    card.append(
+      text(
+        "p",
+        `${perf.totalMoves} moves · ${perf.totalLines} lines · Best combo ${perf.maxCombo}x`,
+      ),
+    );
+  if (!official && rescue?.available) {
+    const revive = text("button", "Free revive · 1 per run", "modal-button");
+    revive.id = "classicReviveBtn";
+    revive.onclick = () => { revive.setAttribute("disabled", ""); rescue.onRevive(); };
+    card.append(revive, text("p", "Keep your board and score. Get fresh rescue pieces. No ad required."));
+  } else if (!official && rescue?.used) {
+    card.append(text("p", "Free revive used · no revives left this run."));
   }
-  if (!modalEl) return;
-
-  // Clear any existing active modals so Game Over is guaranteed visible
-  document.querySelectorAll(".modal-overlay.active").forEach((el) => {
-    if (el !== modalEl) {
-      el.classList.remove("active");
-    }
-  });
-
-  try {
-    const conf = tournamentConfigManager.getConfig();
-    const badgeEl = document.getElementById("modalBadge");
-    const isClassic = modeName.toLowerCase() === "classic";
-
-    if (badgeEl) {
-      badgeEl.textContent = isClassic
-        ? `CLASSIC (CASUAL)`
-        : `${conf.sponsorName.toUpperCase()} PRIZE RUN`;
-      badgeEl.className = "modal-badge";
-    }
-
-    const scoreEl = document.getElementById("modalScore");
-    if (scoreEl) scoreEl.textContent = score.toLocaleString();
-
-    const reasonPill = document.getElementById("modalReasonPill");
-    if (reasonPill) {
-      reasonPill.innerHTML = `🚫 <strong>Out of moves:</strong> No space left for remaining bricks!`;
-    }
-
-    // Performance Grading Card
-    const perfCard = document.getElementById("modalPerfCard");
-    if (perfCard) {
-      if (perf) {
-        perfCard.style.display = "flex";
-        const effEl = document.getElementById("modalEfficiencyGrade");
-        const stratEl = document.getElementById("modalStrategyGrade");
-        const linesEl = document.getElementById("modalLinesCleared");
-        const comboEl = document.getElementById("modalMaxCombo");
-
-        if (effEl) {
-          effEl.textContent = perf.efficiencyGrade;
-          effEl.className = `perf-chip-val grade-${perf.efficiencyGrade.replace("+", "plus").toLowerCase()}`;
-        }
-        if (stratEl) {
-          stratEl.textContent = perf.strategicGrade;
-        }
-        if (linesEl) {
-          linesEl.textContent = `${perf.totalLines}`;
-        }
-        if (comboEl) {
-          comboEl.textContent = `${perf.maxCombo}x`;
-        }
-      } else {
-        perfCard.style.display = "none";
-      }
-    }
-
-    const rank = estimateRank(score);
-    const teaserEl = document.getElementById("modalRankTeaser");
-    const top1Reward = conf?.prizeTiers?.[0]?.reward || `${conf.currencySymbol}250`;
-    const top2Reward = conf?.prizeTiers?.[1]?.reward || `${conf.currencySymbol}150`;
-    const top3Reward = conf?.prizeTiers?.[2]?.reward || `${conf.currencySymbol}100`;
-
-    if (teaserEl) {
-      if (isClassic) {
-        teaserEl.innerHTML = `🎯 Classic Casual Score: <strong>${score.toLocaleString()}</strong>`;
-        teaserEl.className = "rank-teaser";
-      } else if (rank === 1) {
-        teaserEl.innerHTML = `🌟 <strong>NEW #1 LEADER!</strong> Eligible for ${top1Reward} Grand Prize!`;
-        teaserEl.className = "rank-teaser gold-glow";
-      } else if (rank === 2) {
-        teaserEl.innerHTML = `🥈 <strong>RANK #2!</strong> Eligible for ${top2Reward} Runner-Up Prize!`;
-        teaserEl.className = "rank-teaser gold-glow";
-      } else if (rank === 3) {
-        teaserEl.innerHTML = `🥉 <strong>RANK #3!</strong> Eligible for ${top3Reward} 3rd Place Prize!`;
-        teaserEl.className = "rank-teaser top5-glow";
-      } else if (rank <= 10) {
-        teaserEl.innerHTML = `🔥 Ranked <strong>#${rank}</strong> — Inside the ${conf.totalPrizePool} Prize Pool!`;
-        teaserEl.className = "rank-teaser top5-glow";
-      } else {
-        teaserEl.innerHTML = `Official Entry Ranked: <strong>#${rank}</strong> this week`;
-        teaserEl.className = "rank-teaser";
-      }
-    }
-
-    // Chances & Simple Ticket Display (Points 2 & 3: completely unambiguous)
-    const chancesLeft = chancesManager.getChancesRemaining();
-    const chancesLabel = document.getElementById("chancesLabel");
-    const inviteFriendsBtn = document.getElementById("inviteFriendsBtn");
-    const claimBtn = document.getElementById("claimSpotBtn");
-    const restartBtn = document.getElementById("restartBtn");
-    const isVerified = authManager.isWhatsAppVerified();
-    const verifiedCard = document.getElementById("modalVerifiedStatusCard");
-    const verifiedPlayerName = document.getElementById("modalVerifiedPlayerName");
-    const supportLink = document.getElementById("modalSupportLink");
-
-    if (verifiedCard && verifiedPlayerName) {
-      if (!isClassic && isVerified) {
-        verifiedCard.style.display = "block";
-        const profile = authManager.getProfile();
-        verifiedPlayerName.innerHTML = `${profile.nickname} ${getVerifiedBadgeHtml()}`;
-      } else {
-        verifiedCard.style.display = "none";
-      }
-    }
-
-    if (supportLink) {
-      supportLink.style.display = (!isClassic && isVerified) ? "inline-block" : "none";
-    }
-
-    if (chancesLabel) {
-      if (isClassic) {
-        chancesLabel.innerHTML = `🎯 <strong>Classic Mode:</strong> Unlimited free casual play. Zero tickets used.`;
-      } else if (chancesLeft > 0) {
-        chancesLabel.innerHTML = `🎟️ <strong>Prize Run Finished:</strong> ${chancesLeft} of 3 daily tickets remaining.`;
-      } else {
-        chancesLabel.innerHTML = `⚠️ <strong>All 3 daily tickets used.</strong> Resets daily at midnight!`;
-      }
-    }
-
-    if (restartBtn) {
-      if (isClassic) {
-        restartBtn.textContent = "🔄 Play Classic Again";
-      } else {
-        restartBtn.textContent = chancesLeft > 0 ? `🎟️ Play Next Ticket (${chancesLeft} Left)` : "🏆 Tournament Complete";
-      }
-    }
-
-    if (inviteFriendsBtn) {
-      inviteFriendsBtn.style.display = !isClassic && chancesLeft <= 1 ? "flex" : "none";
-    }
-
-    if (claimBtn) {
-      // Only show registration button if player is NOT verified yet!
-      claimBtn.style.display = (!isClassic && !isVerified) ? "flex" : "none";
-      claimBtn.removeAttribute("disabled");
-      claimBtn.textContent = "🛡️ Register Profile to Claim Official Prizes & Badges";
-    }
-
-    const lbContainer = document.getElementById("modalLeaderboardContainer");
-    if (lbContainer) {
-      lbContainer.innerHTML = renderLeaderboardHTML(score);
-    }
-  } catch (err) {
-    console.error("Error setting up GameOver modal content:", err);
+  if (ranked) appendClassicSubmission(card, ranked.onFinish);
+  const status = text("p", "");
+  status.id = "submissionStatus";
+  status.setAttribute("role", "status");
+  card.append(status);
+  const retry = text("button", "Retry saving this run", "modal-button");
+  retry.onclick = () => void retrySubmission();
+  card.append(retry);
+  function render() {
+    const submission = getSubmission();
+    status.textContent = official
+      ? submission
+        ? `${submission.state}${submission.receipt ? ` · Accepted score ${submission.receipt.score.toLocaleString()} · Current rank #${submission.receipt.rank}` : ""}${submission.error ? ` — ${submission.error}` : ""}`
+        : "This run has not been submitted."
+      : ranked ? "Local copy saved on this device." : "Casual score saved on this device.";
+    retry.hidden =
+      !official || !submission || submission.state !== "retry needed";
   }
-
-  modalEl.classList.add("active");
+  render();
+  const listener = () => {
+    if (document.getElementById("submissionStatus") === status) render();
+    else window.removeEventListener("pilot-submission", listener);
+  };
+  window.addEventListener("pilot-submission", listener);
+  const again = text(
+    "button",
+    official
+      ? `Next official attempt (${chancesManager.getChancesRemaining()} tickets cached)`
+      : ranked ? "Play ranked Classic again" : "Play Classic again",
+    "modal-button",
+  );
+  again.onclick = restart;
+  const casual = text(
+    "button",
+    "Play Classic — free",
+    "modal-secondary-button",
+  );
+  casual.onclick = classic;
+  const standings = text(
+    "button",
+    CLASSIC_RANKED_ENABLED ? "Daily leaderboard & streak" : CASUAL_ONLY ? "View your progress" : "View accepted standings / prize claims",
+    "modal-secondary-button",
+  );
+  if (!official && !ranked && CLASSIC_RANKED_ENABLED) {
+    const join = text("button", "Try today's ranked Classic", "modal-secondary-button");
+    join.onclick = () => { hideModal(); openClassicEntry(); };
+    card.append(join);
+  }
+  standings.onclick = () => leaderboardManager.show();
+  card.append(
+    again,
+    casual,
+    standings,
+    text(
+      "p",
+      CASUAL_ONLY ? "Progress is saved in this browser. Clearing browser data can erase it." : "Guest access is stored in this browser. Clearing browser data can lose access to runs and claims.",
+    ),
+  );
+  if (CASUAL_ONLY) appendChannelFollow(card);
 }

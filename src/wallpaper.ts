@@ -184,7 +184,7 @@ export const DEFAULT_SPONSOR_SVG = `data:image/svg+xml;utf8,<svg xmlns="http://w
   <!-- Branded Sponsor Typography -->
   <text x="400" y="550" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="900" fill="%23fbbf24" letter-spacing="6" text-anchor="middle">OFFICIAL SPONSOR ARENA</text>
   <text x="400" y="600" font-family="system-ui, -apple-system, sans-serif" font-size="44" font-weight="900" fill="url(%23goldText)" letter-spacing="3" text-anchor="middle">WEEKLY CASH CUP</text>
-  <text x="400" y="645" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="700" fill="%2394a3b8" letter-spacing="4" text-anchor="middle">TOP 10 LEADERBOARD PAYOUTS</text>
+  <text x="400" y="645" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="700" fill="%2394a3b8" letter-spacing="4" text-anchor="middle">PROVISIONAL TOURNAMENT STANDINGS</text>
 
   <!-- Reveal Callout -->
   <g transform="translate(240, 700)">
@@ -207,7 +207,7 @@ class WallpaperManager {
   private sponsorConfig: SponsorConfig = {
     name: "Official Partner",
     tagline: "Weekly Cash Prize Sponsor",
-    prizeText: "R500 Weekly Prize Pot",
+    prizeText: "Play for your best score",
     customImageData: null,
   };
   private listeners: Array<() => void> = [];

@@ -1,170 +1,77 @@
-export interface FloatingItem {
+import { getPraise, type PraiseCue } from "./praise";
+
+interface FloatingItem {
   text: string;
+  subText: string;
+  color: string;
   x: number;
   y: number;
-  color: string;
-  subText?: string;
-  scale: number;
-  targetScale: number;
-  alpha: number;
-  vy: number;
   age: number;
-  maxAge: number;
 }
 
 export class FloatingTextManager {
-  private items: FloatingItem[] = [];
+  private item: FloatingItem | null = null;
+  private lastFrame = 0;
 
-  public spawnPraise(lines: number, combo: number, centerX: number, centerY: number) {
-    let mainText = "";
-    let subText: string | undefined = undefined;
-    let color = "#ffd600"; // gold default
-
-    if (combo >= 2 && lines === 1) {
-      mainText = `COMBO ×${combo}`;
-      color = combo >= 4 ? "#ff007f" : combo >= 3 ? "#00e5ff" : "#76ff03";
-    } else if (lines >= 4) {
-      mainText = "UNBELIEVABLE!!";
-      subText = combo >= 2 ? `×${combo} COMBO BLAST` : "QUAD BLAST";
-      color = "#ff3366";
-    } else if (lines === 3) {
-      mainText = "AMAZING!";
-      subText = combo >= 2 ? `×${combo} COMBO` : "TRIPLE CLEAR";
-      color = "#ffd600";
-    } else if (lines === 2) {
-      mainText = "GREAT!";
-      subText = combo >= 2 ? `×${combo} COMBO` : "DOUBLE CLEAR";
-      color = "#00e5ff";
-    } else if (lines === 1) {
-      mainText = "NICE!";
-      color = "#ff9100";
-    }
-
-    if (!mainText) return;
-
-    this.items.push({
-      text: mainText,
-      subText,
-      x: centerX,
-      y: centerY - 10,
-      color,
-      scale: 0.3,
-      targetScale: lines >= 3 || combo >= 3 ? 1.35 : 1.15,
-      alpha: 1,
-      vy: -1.8,
-      age: 0,
-      maxAge: 55, // frames (~0.9 seconds)
-    });
+  public spawnPraise(lines: number, combo: number, centerX: number, centerY: number,
+    points = 0, allClear = false): PraiseCue {
+    const cue = getPraise(lines, combo, allClear);
+    const detail = allClear ? "ALL CLEAR" : combo >= 2 ? `COMBO ×${combo}` :
+      lines > 1 ? `${lines} LINES` : "LINE CLEAR";
+    // One clear = one celebration. The score stays below the phrase.
+    this.item = { text: cue.text, color: cue.color, subText: `${detail} · +${points}`,
+      x: centerX, y: centerY - 6, age: 0 };
+    this.lastFrame = performance.now();
+    return cue;
   }
 
-  public spawnScoreBonus(points: number, x: number, y: number) {
-    this.items.push({
-      text: `+${points}`,
-      x,
-      y: y - 5,
-      color: "#00e5ff",
-      scale: 0.6,
-      targetScale: 1.0,
-      alpha: 1,
-      vy: -1.2,
-      age: 0,
-      maxAge: 40,
-    });
-  }
-
-  public spawnAllClear(centerX: number, centerY: number, bonusPoints: number = 500) {
-    this.items.push({
-      text: "🌟 ALL CLEAR! 🌟",
-      subText: `+${bonusPoints} PERFECT BONUS`,
-      x: centerX,
-      y: centerY - 15,
-      color: "#ffd700",
-      scale: 0.2,
-      targetScale: 1.45,
-      alpha: 1,
-      vy: -1.0,
-      age: 0,
-      maxAge: 75,
-    });
-  }
-
-  public spawnMilestone(text: string, subText: string, centerX: number, centerY: number) {
-    this.items.push({
-      text,
-      subText,
-      x: centerX,
-      y: centerY - 20,
-      color: "#ffd700",
-      scale: 0.25,
-      targetScale: 1.4,
-      alpha: 1,
-      vy: -1.2,
-      age: 0,
-      maxAge: 80,
-    });
+  public getVisibleText() {
+    return this.item ? { text: this.item.text, detail: this.item.subText } : null;
   }
 
   public updateAndDraw(ctx: CanvasRenderingContext2D) {
-    for (let i = this.items.length - 1; i >= 0; i--) {
-      const item = this.items[i];
-      item.age++;
-      item.y += item.vy;
-      item.vy *= 0.95; // decelerate upward drift
-
-      // Spring / pop-in scale
-      item.scale += (item.targetScale - item.scale) * 0.25;
-
-      // Fade out near end of life
-      if (item.age > item.maxAge * 0.6) {
-        item.alpha = Math.max(0, 1 - (item.age - item.maxAge * 0.6) / (item.maxAge * 0.4));
-      }
-
-      if (item.age >= item.maxAge || item.alpha <= 0) {
-        this.items.splice(i, 1);
-        continue;
-      }
-
-      ctx.save();
-      ctx.globalAlpha = item.alpha;
-      ctx.translate(item.x, item.y);
-      ctx.scale(item.scale, item.scale);
-
-      // Main praise text
-      ctx.font = '900 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Impact, Roboto, sans-serif';
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
-      // Heavy 3D shadow & stroke for comic/arcade readability
-      ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetY = 3;
-
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = "#080911";
-      ctx.strokeText(item.text, 0, 0);
-
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = item.color;
-      ctx.fillText(item.text, 0, 0);
-
-      // Optional Subtitle
-      if (item.subText) {
-        ctx.font = '800 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = "#080911";
-        ctx.strokeText(item.subText, 0, 18);
-
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(item.subText, 0, 18);
-      }
-
-      ctx.restore();
-    }
+    const item = this.item;
+    if (!item) return;
+    const now = performance.now();
+    item.age += Math.max(0, now - this.lastFrame);
+    this.lastFrame = now;
+    if (item.age >= 1500) { this.item = null; return; }
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // A compact squash/pop, then settle; reduced motion keeps the words still.
+    const progress = Math.min(1, item.age / 240);
+    const pop = 1 + 2.7 * Math.pow(progress - 1, 3) + 1.7 * Math.pow(progress - 1, 2);
+    const scale = reduced ? 1 : 0.7 + 0.3 * pop;
+    const alpha = reduced ? 1 : Math.min(1, item.age / 50, (1500 - item.age) / 300);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, alpha);
+    ctx.translate(item.x, item.y - (reduced ? 0 : Math.min(9, item.age / 90)));
+    ctx.scale(scale, reduced ? 1 : scale * (1 + 0.07 * Math.sin(progress * Math.PI)));
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.font = '700 36px Fredoka, "Arial Rounded MT Bold", sans-serif';
+    // Dark outline and small extrusion stay legible over every block skin.
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = "#132f3a";
+    ctx.strokeText(item.text, 0, 4);
+    ctx.fillStyle = "#132f3a";
+    ctx.fillText(item.text, 0, 4);
+    ctx.strokeText(item.text, 0, 0);
+    const gradient = ctx.createLinearGradient(0, -18, 0, 18);
+    gradient.addColorStop(0, "#fff6d8");
+    gradient.addColorStop(0.35, item.color);
+    gradient.addColorStop(1, item.color);
+    ctx.fillStyle = gradient;
+    ctx.fillText(item.text, 0, 0);
+    ctx.font = '800 12px "DM Sans", sans-serif';
+    ctx.lineWidth = 5;
+    ctx.strokeText(item.subText, 0, 32);
+    ctx.fillStyle = "#fffdf3";
+    ctx.fillText(item.subText, 0, 32);
+    ctx.restore();
   }
 
-  public clear() {
-    this.items = [];
-  }
+  public clear() { this.item = null; }
 }
 
 export const floatingTexts = new FloatingTextManager();

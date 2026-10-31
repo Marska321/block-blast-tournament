@@ -1,7 +1,11 @@
+import { initUpdates } from "./updates";
+import { initOffline } from "./offline";
 import {
   computeLayout,
   computePieceCellSize,
   setBlockStyle,
+  getBlockStyle,
+  BLOCK_STYLE_PRESETS,
   resetSessionBlockStyle,
   triggerRandomBlockStyleMutation,
   setSpriteScale,
@@ -11,19 +15,33 @@ import {
   drawPiece,
   drawGhostBlock,
   drawTray,
-  createTrayBlocks,
   findBestGridPlacement,
-  checkAndClearLines,
-  canPlaceAnyBlock,
   GridOffset,
 } from "./gameFunctions";
-import { countBlocks, TrayBlock, ShapeTier } from "./blocks";
-import { createRNG, PRNG } from "./prng";
+import { TrayBlock } from "./blocks";
+
 import { soundManager } from "./audio";
 import { particles } from "./particles";
 import { floatingTexts } from "./floatingText";
 import { comboBar } from "./comboBar";
-import { sessionManager } from "./session";
+import {
+  beginSubmission,
+  hasUnsavedSubmission,
+  showPendingSubmission,
+} from "./session";
+import {
+  GameEngine,
+  ENGINE_VERSION,
+  MAX_ACTIONS,
+  replay,
+  type GameAction,
+} from "../shared/engine";
+import type { RunSession } from "../shared/contracts";
+import type { ClassicSession } from "../shared/classic";
+import { configureClassicStart, requestClassicSession, openClassicEntry, beginClassicSubmission } from "./classic";
+import { installDialogs, dialog, text } from "./dialogs";
+import { storage } from "./storage";
+import { queueLevelProgress } from "./progressSync";
 import {
   createGameOverModal,
   showModal,
@@ -52,21 +70,31 @@ import { showPreTourneyModal, hidePreTourneyModal } from "./preTourneyModal";
 import { hideTourneyRulesModal } from "./tourneyRulesModal";
 import { authManager } from "./auth";
 import {
-  requestTournamentSessionToken,
-  submitTournamentScore,
+  ensureGuest,
+  requestRun,
+  getSelectedEvent,
+  RequestError,
+  existingSession,
 } from "./supabaseClient";
 import { wallpaperManager, updateLifetimeBestScore } from "./wallpaper";
 import { showWallpaperModal } from "./wallpaperModal";
 import { getPhotoRevealMode, unlockPhotoReveal } from "./photoReveal";
 import { showLandingModal, isFirstTimeUser } from "./landingModal";
 import { referralManager } from "./referral";
+import { CASUAL_ONLY, CLASSIC_RANKED_ENABLED, showCasualInfo } from "./launch";
 import {
   tournamentConfigManager,
   TournamentSponsorConfig,
 } from "./tournamentConfig";
 
-let currentTournamentToken: string | null = null;
-let currentTournamentSeed: number = 0;
+let engine: GameEngine;
+let officialSession: RunSession | null = null;
+let rankedSession: ClassicSession | null = null;
+let rankedFinalized = false;
+let runStartedAt = Date.now();
+let startingOfficial = false;
+let handledGameOver = false;
+installDialogs();
 
 const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
@@ -82,6 +110,19 @@ const chancesBadgeEl = document.getElementById("hud-chances-badge");
 const modeLevelsBtn = document.getElementById("mode-levels-btn");
 const modeClassicBtn = document.getElementById("mode-classic-btn");
 const modeTourneyBtn = document.getElementById("mode-tourney-btn");
+if (CASUAL_ONLY) {
+  document.body.classList.add("casual-launch");
+  if (modeTourneyBtn) {
+    modeTourneyBtn.textContent = "Promotions · soon";
+    (modeTourneyBtn as HTMLButtonElement).disabled = true;
+    modeTourneyBtn.title = "Promotions are coming soon. Enable alerts using the bell.";
+  }
+  if (modeLevelsBtn) modeLevelsBtn.textContent = "Levels";
+  if (modeClassicBtn) modeClassicBtn.textContent = "Classic";
+  leaderboardBtn?.setAttribute("aria-label", CLASSIC_RANKED_ENABLED ? "Daily leaderboard and streak" : "View your progress");
+  leaderboardBtn?.setAttribute("title", CLASSIC_RANKED_ENABLED ? "Daily leaderboard and streak" : "Your progress");
+  landingInfoBtn?.setAttribute("aria-label", "Game info and event updates");
+}
 
 // Tournament live banner & stakes indicators
 const tournamentBannerEl = document.getElementById("tournament-banner");
@@ -108,27 +149,22 @@ let currentWorldTheme: WorldTheme | null = null;
 let activeLevelGoals: LevelGoal[] = [];
 let levelMovesCount: number = 0;
 let levelParMoves: number = 20;
-let movesRemaining: number | null = null;
 let activeGemPositions: Set<string> = new Set();
 let activeObstaclePositions: Set<string> = new Set();
 let activeGlowingPositions: Set<string> = new Set();
 let activeGoldenPositions: Set<string> = new Set();
-let pendingSpecialDeal: boolean = false;
-const levelFailCountMap: Record<number, number> = {};
 let canReviveInCurrentLevel: boolean = true;
 let activeRevealedTiles: Set<string> = new Set();
-let allTilesPreviouslyRevealed: boolean = false;
 
 // Expose block style switcher to global scope (e.g. setBlockStyle('candy') or 'bevel')
 (window as any).setBlockStyle = setBlockStyle;
 (window as any).resetPhotoRevealProgress = () => {
   activeRevealedTiles.clear();
-  allTilesPreviouslyRevealed = false;
   saveActiveGameSession();
 };
 
 // Paper / Light Theme Mode Management
-let isPaperTheme = localStorage.getItem("bb_theme") === "paper";
+let isPaperTheme = storage.get("bb_theme") === "paper";
 
 function applyTheme(paper: boolean) {
   isPaperTheme = paper;
@@ -137,12 +173,19 @@ function applyTheme(paper: boolean) {
     themeBtn.textContent = isPaperTheme ? "🌙" : "☀️";
     themeBtn.setAttribute(
       "title",
-      isPaperTheme ? "Switch to Dark Theme" : "Switch to Light Theme"
+      isPaperTheme ? "Switch to Dark Theme" : "Switch to Light Theme",
     );
+    themeBtn.setAttribute("aria-label", isPaperTheme ? "Switch to Dark Theme" : "Switch to Light Theme");
   }
-  setBlockStyle("flat");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isPaperTheme ? "#f5f0e6" : "#18313a");
   invalidateBoardCache();
-  localStorage.setItem("bb_theme", isPaperTheme ? "paper" : "dark");
+  storage.set("bb_theme", isPaperTheme ? "paper" : "dark");
+  if (CASUAL_ONLY) {
+    document.body.style.background = "";
+    const surface = document.getElementById("game-container");
+    if (surface) surface.style.background = "var(--bb-surface)";
+    return;
+  }
 
   const gameContainer = document.getElementById("game-container");
   if (gameContainer) {
@@ -208,167 +251,59 @@ function computePerformanceStats(): PerformanceStats {
 const STORAGE_KEY_ACTIVE_SESSION = "bb_in_progress_game";
 
 function saveActiveGameSession() {
-  if (gameOver) return;
-  if (totalMovesPlaced === 0 && score === 0) return;
-
-  try {
-    const sessionData = {
-      timestamp: Date.now(),
-      modeId: currentMode.id,
-      score,
-      combo,
-      totalMovesPlaced,
-      totalLinesCleared,
-      maxComboAchieved,
-      multilineClears,
-      cumulativeEfficiency,
-      grid: GAME_GRID,
-      availableBlocks: availableBlocks.map((b) => ({
-        shape: b.shape,
-        color: b.color,
-        active: b.active,
-        originalIndex: b.originalIndex,
-        isGlowing: b.isGlowing,
-        isGolden: b.isGolden,
-      })),
-      levelNumber: currentLevelConfig ? currentLevelConfig.level : null,
-      levelMovesCount,
-      levelParMoves,
-      movesRemaining,
-      goals: activeLevelGoals.map((g) => ({ ...g })),
-      gemPositions: Array.from(activeGemPositions),
-      obstaclePositions: Array.from(activeObstaclePositions),
-      glowingPositions: Array.from(activeGlowingPositions),
-      goldenPositions: Array.from(activeGoldenPositions),
-      revealedTiles: Array.from(activeRevealedTiles),
-      pendingSpecialDeal,
-    };
-    localStorage.setItem(
-      STORAGE_KEY_ACTIVE_SESSION,
-      JSON.stringify(sessionData)
-    );
-  } catch (e) {}
+  if (!engine || rankedFinalized || (engine.over && !engine.canRevive)) return;
+  storage.set(
+    STORAGE_KEY_ACTIVE_SESSION,
+    JSON.stringify({
+      version: ENGINE_VERSION,
+      startedAt: runStartedAt,
+      options: engine.options,
+      actions: engine.actions,
+      officialSession,
+      rankedSession,
+      practice: !officialSession && !rankedSession,
+      blockStyle: getBlockStyle(),
+    }),
+  );
 }
-
 function clearActiveGameSession() {
-  try {
-    localStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION);
-    toastEl?.classList.remove("show");
-  } catch (e) {}
+  storage.remove(STORAGE_KEY_ACTIVE_SESSION);
 }
-
 function tryResumeSavedGameSession(): boolean {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_ACTIVE_SESSION);
-    if (!raw) return false;
-    const data = JSON.parse(raw);
+    const saved = JSON.parse(storage.get(STORAGE_KEY_ACTIVE_SESSION) || "null");
     if (
-      !data ||
-      !data.grid ||
-      !Array.isArray(data.grid) ||
-      data.grid.length < 8
-    ) {
+      !saved ||
+      saved.version !== ENGINE_VERSION ||
+      (CASUAL_ONLY && saved.options?.kind === "tournament") ||
+      Date.now() - saved.startedAt >= 48 * 3600_000
+    )
       return false;
-    }
-    // Expire if older than 48 hours
-    if (Date.now() - (data.timestamp || 0) > 48 * 3600 * 1000) {
-      clearActiveGameSession();
+    if (
+      saved.options.kind === "tournament" &&
+      (!saved.officialSession ||
+        saved.practice ||
+        saved.officialSession.engine_version !== ENGINE_VERSION ||
+        Date.now() >= Date.parse(saved.officialSession.expires_at) ||
+        saved.options.seed !== Number(saved.officialSession.seed))
+    )
       return false;
-    }
-
-    if (data.modeId === GameModeId.LEVELS && data.levelNumber) {
-      initLevelGame(data.levelNumber, false, true);
-      levelMovesCount =
-        typeof data.levelMovesCount === "number"
-          ? data.levelMovesCount
-          : (typeof data.movesRemaining === "number" ? Math.max(0, 20 - data.movesRemaining) : 0);
-      levelParMoves =
-        typeof data.levelParMoves === "number"
-          ? data.levelParMoves
-          : 20;
-
-      if (Array.isArray(data.goals) && data.goals.length > 0) {
-        const configHasGems = currentLevelConfig?.goals.some((g) => g.type === GoalType.GEMS);
-        const savedHasGems = data.goals.some((g: any) => g.type === GoalType.GEMS);
-        if (currentLevelConfig && configHasGems && !savedHasGems) {
-          // Re-sync goals from current level config if saved session had old goals
-          activeLevelGoals = currentLevelConfig.goals.map((g) => ({ ...g, current: 0 }));
-        } else {
-          activeLevelGoals = data.goals;
-        }
-      }
-      if (Array.isArray(data.gemPositions)) {
-        activeGemPositions = new Set(data.gemPositions);
-      }
-      if (Array.isArray(data.obstaclePositions)) {
-        activeObstaclePositions = new Set(data.obstaclePositions);
-      }
-
-      // Safeguard: Ensure level with gem goal has jewel blocks on the board
-      if (currentLevelConfig && currentLevelConfig.goals.some((g) => g.type === GoalType.GEMS)) {
-        const gemGoal = activeLevelGoals.find((g) => g.type === GoalType.GEMS);
-        if (gemGoal && gemGoal.current < gemGoal.target && activeGemPositions.size === 0) {
-          currentLevelConfig.prefilledTiles?.forEach((tile) => {
-            if (tile.isGem) {
-              activeGemPositions.add(`${tile.col},${tile.row}`);
-              if (GAME_GRID[tile.row]) {
-                GAME_GRID[tile.row][tile.col] = tile.color;
-              }
-            }
-          });
-        }
-      }
-    } else if (data.modeId === GameModeId.TOURNAMENT) {
-      initTournamentGame(false, true);
-    } else {
-      initClassicGame(true);
-    }
-
-    if (Array.isArray(data.glowingPositions)) {
-      activeGlowingPositions = new Set(data.glowingPositions);
-    }
-    if (Array.isArray(data.goldenPositions)) {
-      activeGoldenPositions = new Set(data.goldenPositions);
-    }
-    if (Array.isArray(data.revealedTiles)) {
-      activeRevealedTiles = new Set(data.revealedTiles);
-    }
-    pendingSpecialDeal = !!data.pendingSpecialDeal;
-
-    GAME_GRID = data.grid;
-    score = typeof data.score === "number" ? data.score : 0;
-    combo = typeof data.combo === "number" ? data.combo : 0;
-    totalMovesPlaced = data.totalMovesPlaced || 0;
-    totalLinesCleared = data.totalLinesCleared || 0;
-    maxComboAchieved = data.maxComboAchieved || 0;
-    multilineClears = data.multilineClears || 0;
-    cumulativeEfficiency = data.cumulativeEfficiency || 0;
-
-    if (Array.isArray(data.availableBlocks) && data.availableBlocks.length > 0) {
-      availableBlocks.length = 0;
-      data.availableBlocks.forEach((b: any, idx: number) => {
-        availableBlocks.push({
-          shape: b.shape,
-          color: b.color,
-          active: b.active,
-          originalIndex: typeof b.originalIndex === "number" ? b.originalIndex : idx,
-          isGlowing: !!b.isGlowing,
-          isGolden: !!b.isGolden,
-          x: 0,
-          y: 0,
-        });
-      });
-      positionTrayBlocks();
-    }
-
-    comboBar.update(combo);
-    updateScoreUI();
-    if (currentMode.id === GameModeId.LEVELS) {
-      updateLevelHUD();
-    }
-    invalidateBoardCache();
+    const restored = replay(saved.options, saved.actions);
+    if (restored.over && !restored.canRevive) return false;
+    officialSession = saved.officialSession;
+    rankedSession = CLASSIC_RANKED_ENABLED && saved.options.kind === "classic" ? saved.rankedSession || null : null;
+    if (rankedSession && (rankedSession.engine_version !== ENGINE_VERSION || Number(rankedSession.seed) !== saved.options.seed))
+      return false;
+    rankedFinalized = false;
+    runStartedAt = saved.startedAt;
+    setupEngine(restored);
+    if (BLOCK_STYLE_PRESETS.some((style) => style.id === saved.blockStyle))
+      setBlockStyle(saved.blockStyle);
+    lastAnnouncedMilestone = [1000, 2500, 5000, 8000, 12000, 16000, 20000]
+      .filter((milestone) => restored.score >= milestone).pop() || 0;
+    if (restored.over) checkBoardGameOver();
     return true;
-  } catch (err) {
+  } catch {
     clearActiveGameSession();
     return false;
   }
@@ -380,8 +315,9 @@ let dpr = 1;
 let layout: LayoutMetrics;
 let gridOffset: GridOffset = { x: 0, y: 0, cellSize: 40 };
 
-let GAME_GRID: (string | 0)[][] = Array.from({ length: currentMode.gridSize }, () =>
-  Array(currentMode.gridSize).fill(0)
+let GAME_GRID: (string | 0)[][] = Array.from(
+  { length: currentMode.gridSize },
+  () => Array(currentMode.gridSize).fill(0),
 );
 
 let score = 0;
@@ -413,7 +349,6 @@ let activeBlock: {
 } | null = null;
 
 let screenShake = 0;
-let rng: PRNG = createRNG(Date.now());
 
 function positionTrayBlocks() {
   if (!layout) return;
@@ -429,7 +364,7 @@ function positionTrayBlocks() {
       block.shape,
       slotWidth,
       layout.trayH,
-      layout.cellSize
+      layout.cellSize,
     );
     block.cellSize = pieceCellSize;
     const pieceWidth = block.shape[0].length * pieceCellSize;
@@ -442,7 +377,9 @@ function positionTrayBlocks() {
 
 function resizeCanvas() {
   const container = document.getElementById("game-container");
-  const rect = container ? container.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
+  const rect = container
+    ? container.getBoundingClientRect()
+    : { width: window.innerWidth, height: window.innerHeight };
   logicalWidth = Math.min(rect.width || window.innerWidth, 500);
   logicalHeight = rect.height || window.innerHeight;
 
@@ -459,10 +396,17 @@ function resizeCanvas() {
   // Measure the real HUD height instead of assuming it (Levels mode adds a tall goal panel)
   const hudEl = document.getElementById("hud-overlay");
   const canvasTop = canvas.getBoundingClientRect().top;
-  const hudBottom = hudEl ? hudEl.getBoundingClientRect().bottom - canvasTop : 92;
+  const hudBottom = hudEl
+    ? hudEl.getBoundingClientRect().bottom - canvasTop
+    : 92;
   const topInset = Math.max(70, Math.ceil(hudBottom));
 
-  layout = computeLayout(logicalWidth, logicalHeight, topInset, currentMode.gridSize);
+  layout = computeLayout(
+    logicalWidth,
+    logicalHeight - (document.querySelector("#keyboard-controls summary")?.getBoundingClientRect().height || 30) - 8,
+    topInset,
+    currentMode.gridSize,
+  );
   gridOffset = {
     x: layout.boardX,
     y: layout.boardY,
@@ -477,39 +421,41 @@ function updateHUDChances() {
   if (currentMode.id !== GameModeId.TOURNAMENT) {
     if (chancesBadgeEl) chancesBadgeEl.style.display = "none";
     if (tournamentBannerEl) tournamentBannerEl.style.display = "none";
-    if (hudStakesTagEl) hudStakesTagEl.style.display = "none";
+    if (hudStakesTagEl) {
+      hudStakesTagEl.style.display = rankedSession ? "inline-block" : "none";
+      hudStakesTagEl.className = "hud-stakes-tag practice";
+      hudStakesTagEl.textContent = "DAILY CLASSIC · MIDNIGHT SAST";
+    }
     if (hudScoreBoxEl) hudScoreBoxEl.classList.remove("prize-active");
     return;
   }
 
   const left = chancesManager.getChancesRemaining();
-  const conf = tournamentConfigManager.getConfig();
+  const event = getSelectedEvent();
 
   if (chancesBadgeEl) {
     chancesBadgeEl.style.display = "flex";
     chancesBadgeEl.textContent = `🎟️ ${left} TICKET${left === 1 ? "" : "S"}`;
-    chancesBadgeEl.className = left > 0 ? "chances-pill active" : "chances-pill empty";
+    chancesBadgeEl.className =
+      left > 0 ? "chances-pill active" : "chances-pill empty";
   }
 
   if (tournamentBannerEl) {
     tournamentBannerEl.style.display = "flex";
     tournamentBannerEl.className = "tournament-live-bar official";
-    if (tourneyBannerTitleEl) tourneyBannerTitleEl.textContent = `🏆 ${conf.sponsorName.toUpperCase()} PRIZE RUN`;
+    if (tourneyBannerTitleEl)
+      tourneyBannerTitleEl.textContent = event?.is_demo ? "🏆 DEMO RUN" : `🏆 ${event?.title || "EVENT RUN"}`;
     if (tourneyBannerSubEl) {
-      tourneyBannerSubEl.textContent = `${conf.totalPrizePool} Pool • ${conf.disclaimer || "Top 10 Payouts"}`;
+      tourneyBannerSubEl.textContent = event?.is_demo
+        ? "Demo only — no prizes or payouts"
+        : `${event?.prize_pool || "Event details unavailable"} • Accepted scores remain provisional`;
     }
   }
 
   if (hudStakesTagEl) {
     hudStakesTagEl.style.display = "inline-block";
-    const isVerified = authManager.isWhatsAppVerified();
-    if (isVerified) {
-      hudStakesTagEl.textContent = "VERIFIED PRO ✓";
-      hudStakesTagEl.className = "hud-stakes-tag verified";
-    } else {
-      hudStakesTagEl.textContent = "OFFICIAL RUN";
-      hudStakesTagEl.className = "hud-stakes-tag official";
-    }
+    hudStakesTagEl.textContent = "PROVISIONAL RUN";
+    hudStakesTagEl.className = "hud-stakes-tag official";
   }
 
   if (hudScoreBoxEl) {
@@ -518,22 +464,36 @@ function updateHUDChances() {
 }
 
 function updateModeButtons() {
-  modeLevelsBtn?.classList.toggle("active", currentMode.id === GameModeId.LEVELS);
-  modeClassicBtn?.classList.toggle("active", currentMode.id === GameModeId.CLASSIC);
-  modeTourneyBtn?.classList.toggle("active", currentMode.id === GameModeId.TOURNAMENT);
+  modeLevelsBtn?.classList.toggle(
+    "active",
+    currentMode.id === GameModeId.LEVELS,
+  );
+  modeClassicBtn?.classList.toggle(
+    "active",
+    currentMode.id === GameModeId.CLASSIC,
+  );
+  modeTourneyBtn?.classList.toggle(
+    "active",
+    currentMode.id === GameModeId.TOURNAMENT,
+  );
 }
 
 function updateLevelHUD() {
   if (!levelHudEl) return;
 
-  if (currentMode.id !== GameModeId.LEVELS || !currentLevelConfig || !currentWorldTheme) {
+  if (
+    currentMode.id !== GameModeId.LEVELS ||
+    !currentLevelConfig ||
+    !currentWorldTheme
+  ) {
     levelHudEl.style.display = "none";
     return;
   }
 
   levelHudEl.style.display = "flex";
 
-  if (levelHudBadge) levelHudBadge.textContent = `LEVEL ${currentLevelConfig.level}`;
+  if (levelHudBadge)
+    levelHudBadge.textContent = `LEVEL ${currentLevelConfig.level}`;
   if (levelHudWorld) levelHudWorld.textContent = currentWorldTheme.name;
 
   if (levelHudGoals) {
@@ -578,285 +538,214 @@ function updateLevelHUD() {
   }
 }
 
-function initLevelGame(
-  levelNum: number,
-  _isReplay: boolean = false,
-  isResume: boolean = false
-) {
+function setupEngine(next: GameEngine) {
   hideModal();
   hideLevelModal();
   hideLevelSelect();
   hidePreTourneyModal();
   hideTourneyRulesModal();
   hideGameOverToast();
+  engine = next;
+  currentMode =
+    GAME_MODES[
+      next.options.kind === "levels"
+        ? GameModeId.LEVELS
+        : next.options.kind === "tournament"
+          ? GameModeId.TOURNAMENT
+          : GameModeId.CLASSIC
+    ];
+  currentLevelConfig = next.level || null;
+  currentWorldTheme = next.level ? WORLD_THEMES[next.level.worldIndex] : null;
+  levelParMoves = next.level
+    ? next.level.parMoves || next.level.maxMoves || 20
+    : 0;
+  handledGameOver = false;
+  keyboardCursorVisible = false;
+  activeBlock = null;
+  lastAnnouncedMilestone = 0;
+  chancesManager.setPracticeMode(next.options.kind !== "tournament");
+  resetPerformanceMetrics();
+  resetSessionBlockStyle();
+  particles.clear();
+  floatingTexts.clear();
+  comboBar.reset();
+  syncEngine();
+  resizeCanvas();
+  updateModeButtons();
+  updateHUDChances();
+  canvas.focus({ preventScroll: true });
+  if (CASUAL_ONLY) applyTheme(isPaperTheme);
+  else if (isPaperTheme) applyTheme(true);
+  else wallpaperManager.apply(next.options.kind === "tournament");
+}
+function syncEngine() {
+  GAME_GRID = engine.grid;
+  availableBlocks = engine.tray;
+  score = engine.score;
+  combo = engine.combo;
+  gameOver = engine.over;
+  totalMovesPlaced = engine.moves;
+  totalLinesCleared = engine.lines;
+  maxComboAchieved = engine.maxCombo;
+  levelMovesCount = engine.moves;
+  activeLevelGoals = engine.goals;
+  activeGemPositions = engine.gems;
+  activeObstaclePositions = engine.obstacles;
+  activeGoldenPositions = engine.golden;
+  activeGlowingPositions = engine.glowing;
+  activeRevealedTiles = engine.revealed;
+  canReviveInCurrentLevel = !engine.revived;
+  positionTrayBlocks();
+  comboBar.update(combo);
+  updateScoreUI();
+  updateLevelHUD();
+  invalidateBoardCache();
+  updateAccessibleGame();
+}
+function initLevelGame(levelNum: number, _isReplay = false, _isResume = false) {
+  clearActiveGameSession();
+  officialSession = null;
+  rankedSession = null;
+  rankedFinalized = false;
+  runStartedAt = Date.now();
+  setupEngine(
+    new GameEngine({
+      kind: "levels",
+      level: levelNum,
+      seed: crypto.getRandomValues(new Uint32Array(1))[0],
+    }),
+  );
+  saveActiveGameSession();
+}
+function initClassicGame(_isResume = false) {
+  clearActiveGameSession();
+  officialSession = null;
+  rankedSession = null;
+  rankedFinalized = false;
+  runStartedAt = Date.now();
+  setupEngine(
+    new GameEngine({
+      kind: "classic",
+      seed: crypto.getRandomValues(new Uint32Array(1))[0],
+    }),
+  );
+  saveActiveGameSession();
+}
+configureClassicStart(async (nickname) => {
+  const issued = await requestClassicSession(nickname);
+  clearActiveGameSession();
+  officialSession = null;
+  rankedSession = issued;
+  rankedFinalized = false;
+  runStartedAt = Date.now();
+  setupEngine(new GameEngine({ kind: "classic", seed: Number(issued.seed) }));
+  saveActiveGameSession();
+});
 
-  if (!isResume) {
-    clearActiveGameSession();
-    resetPerformanceMetrics();
-    activeGlowingPositions.clear();
-    activeGoldenPositions.clear();
-    pendingSpecialDeal = false;
-    lastAnnouncedMilestone = 0;
-    resetSessionBlockStyle(isPaperTheme);
+function finalizeRankedClassic(finished: GameEngine) {
+  if (engine !== finished || !rankedSession || rankedFinalized) return;
+  rankedFinalized = true;
+  clearActiveGameSession();
+  beginClassicSubmission(rankedSession, finished.actions);
+  document.getElementById("classicReviveBtn")?.remove();
+}
+async function initTournamentGame(_isPractice = false, _isResume = false) {
+  if (CASUAL_ONLY) { showCasualInfo(); return; }
+  if (startingOfficial) return;
+  if (hasUnsavedSubmission()) {
+    showPendingSubmission();
+    return;
   }
-
-  currentMode = GAME_MODES[GameModeId.LEVELS];
-  const config = LEVEL_DATA[levelNum - 1] || LEVEL_DATA[0];
-  currentLevelConfig = config;
-  currentWorldTheme = WORLD_THEMES[config.worldIndex];
-  activeLevelGoals = config.goals.map((g) => ({ ...g, current: 0 }));
-  levelParMoves = config.parMoves || config.maxMoves || 20;
-  if (!isResume) {
-    levelMovesCount = 0;
+  const event = getSelectedEvent();
+  if (!event) {
+    promptTournamentEntry();
+    return;
   }
-  movesRemaining = null;
-  canReviveInCurrentLevel = true;
-
-  if (!isResume) {
-    activeRevealedTiles.clear();
-    allTilesPreviouslyRevealed = false;
-  }
-
-  activeGemPositions.clear();
-  activeObstaclePositions.clear();
-
-  GAME_GRID = Array.from({ length: 8 }, () => Array(8).fill(0));
-
-  // Populate prefilled tiles and gems
-  if (config.prefilledTiles) {
-    config.prefilledTiles.forEach((tile) => {
-      GAME_GRID[tile.row][tile.col] = tile.color;
-      if (tile.isGem) {
-        activeGemPositions.add(`${tile.col},${tile.row}`);
-      } else {
-        activeObstaclePositions.add(`${tile.col},${tile.row}`);
-      }
+  if (!authManager.isAdult()) {
+    authManager.show(() => {
+      if (authManager.isAdult()) void initTournamentGame();
     });
+    return;
   }
-
-  score = 0;
-  combo = 0;
-  gameOver = false;
-  activeBlock = null;
-
-  rng = createRNG(Date.now());
-  resizeCanvas();
-
-  createTrayBlocks({
-    availableBlocks,
-    canvasWidth: logicalWidth,
-    trayY: layout.trayY,
-    trayH: layout.trayH,
-    boardCellSize: layout.cellSize,
-    boardX: layout.boardX,
-    boardSize: layout.boardSize,
-    rng,
-    handSize: currentMode.handSize,
-    allowedTiers: config.allowedTiers,
-    failCount: levelFailCountMap[config.level] || 0,
-    grid: GAME_GRID,
-    blocksPlaced: totalMovesPlaced,
-    maxMoves: config.maxMoves,
-  });
-
-  particles.clear();
-  floatingTexts.clear();
-  comboBar.reset();
-  updateScoreUI();
-  updateHUDChances();
-  updateModeButtons();
-  updateLevelHUD();
-
-  // Apply background: if paper theme is active use paper, otherwise apply user wallpaper
-  const gameContainer = document.getElementById("game-container");
-  if (gameContainer) {
-    if (isPaperTheme) {
-      gameContainer.style.background = "none";
-      gameContainer.style.backgroundImage = "none";
-      gameContainer.style.backgroundColor = "#fbf8f2";
-      document.body.style.background = "#efe7d8";
-    } else {
-      wallpaperManager.apply();
-    }
-  }
-}
-
-function initClassicGame(isResume: boolean = false) {
-  hideModal();
-  hideLevelModal();
-  hideLevelSelect();
-  hidePreTourneyModal();
-  hideTourneyRulesModal();
-  hideGameOverToast();
-
-  if (!isResume) {
-    clearActiveGameSession();
-    resetPerformanceMetrics();
-    activeGlowingPositions.clear();
-    activeGoldenPositions.clear();
-    pendingSpecialDeal = false;
-    lastAnnouncedMilestone = 0;
-    activeRevealedTiles.clear();
-    allTilesPreviouslyRevealed = false;
-    resetSessionBlockStyle(isPaperTheme);
-  }
-
-  currentMode = GAME_MODES[GameModeId.CLASSIC];
-  currentLevelConfig = null;
-  currentWorldTheme = null;
-  activeGemPositions.clear();
-  activeObstaclePositions.clear();
-
-  // Classic is free endless play: unranked warmup stakes
-  chancesManager.setPracticeMode(true);
-
-  GAME_GRID = Array.from({ length: currentMode.gridSize }, () =>
-    Array(currentMode.gridSize).fill(0)
+  startingOfficial = true;
+  const { overlay, card } = dialog(
+    "startingOfficial",
+    "Starting your official run",
   );
-  score = 0;
-  combo = 0;
-  gameOver = false;
-  activeBlock = null;
-
-  rng = createRNG(Date.now());
-  resizeCanvas();
-
-  createTrayBlocks({
-    availableBlocks,
-    canvasWidth: logicalWidth,
-    trayY: layout.trayY,
-    trayH: layout.trayH,
-    boardCellSize: layout.cellSize,
-    boardX: layout.boardX,
-    boardSize: layout.boardSize,
-    rng,
-    handSize: currentMode.handSize,
-    grid: GAME_GRID,
-    blocksPlaced: totalMovesPlaced,
-  });
-
-  particles.clear();
-  floatingTexts.clear();
-  comboBar.reset();
-  updateScoreUI();
-  updateHUDChances();
-  updateModeButtons();
-  updateLevelHUD();
-
-  const gameContainer = document.getElementById("game-container");
-  if (gameContainer) {
-    if (isPaperTheme) {
-      gameContainer.style.background = "none";
-      gameContainer.style.backgroundImage = "none";
-      gameContainer.style.backgroundColor = "#fbf8f2";
-      document.body.style.background = "#efe7d8";
-    } else {
-      wallpaperManager.apply(false); // Player's personal wallpaper
+  const status = text("p", "Connecting securely…");
+  status.setAttribute("role", "status");
+  card.append(status);
+  try {
+    const guest = await ensureGuest();
+    let pending: { requestId: string; eventId: string; userId: string } | null =
+      null;
+    try {
+      pending = JSON.parse(storage.get("bb_pilot_pending_start") || "null");
+    } catch {}
+    if (
+      !pending ||
+      pending.eventId !== event.id ||
+      pending.userId !== guest.user.id
+    ) {
+      pending = {
+        requestId: crypto.randomUUID(),
+        eventId: event.id,
+        userId: guest.user.id,
+      };
+      if (!storage.set("bb_pilot_pending_start", JSON.stringify(pending)))
+        throw new Error(
+          "Browser storage is unavailable. Official runs need storage for safe retries.",
+        );
     }
-  }
-}
-
-function initTournamentGame(
-  isPractice: boolean = false,
-  isResume: boolean = false
-) {
-  hideModal();
-  hideLevelModal();
-  hideLevelSelect();
-  hidePreTourneyModal();
-  hideTourneyRulesModal();
-  hideGameOverToast();
-
-  if (!isResume) {
-    clearActiveGameSession();
-    resetPerformanceMetrics();
-    activeGlowingPositions.clear();
-    activeGoldenPositions.clear();
-    pendingSpecialDeal = false;
-    lastAnnouncedMilestone = 0;
-    activeRevealedTiles.clear();
-    allTilesPreviouslyRevealed = false;
-    resetSessionBlockStyle(isPaperTheme);
-  }
-
-  currentMode = GAME_MODES[GameModeId.TOURNAMENT];
-  currentLevelConfig = null;
-  currentWorldTheme = null;
-  activeGemPositions.clear();
-  activeObstaclePositions.clear();
-
-  chancesManager.setPracticeMode(isPractice);
-
-  if (!isPractice && !isResume) {
-    const hasChance = chancesManager.consumeChance();
-    if (!hasChance) {
-      chancesManager.setPracticeMode(true);
+    const issued = await requestRun({
+      kind: "tournament",
+      eventId: event.id,
+      requestId: pending.requestId,
+      nickname: authManager.getProfile().nickname,
+      adult: true,
+    });
+    if (
+      issued.status !== "started" ||
+      Date.now() >= Date.parse(issued.expires_at)
+    ) {
+      storage.remove("bb_pilot_pending_start");
+      throw new Error(
+        "That attempt has expired. Open the event again to start a new ticket.",
+      );
     }
-  }
-
-  GAME_GRID = Array.from({ length: currentMode.gridSize }, () =>
-    Array(currentMode.gridSize).fill(0)
-  );
-  score = 0;
-  combo = 0;
-  gameOver = false;
-  activeBlock = null;
-  const activeTourneyId = tournamentConfigManager.getActiveTournamentId();
-  const session = sessionManager.startSession(undefined, activeTourneyId);
-  rng = createRNG(session.seed);
-  currentTournamentSeed = session.seed;
-  currentTournamentToken = null;
-
-  if (!isPractice && !isResume) {
-    const profile = authManager.getProfile();
-    const playerId = profile?.id || "guest_" + Math.random().toString(36).substring(2, 9);
-    requestTournamentSessionToken(playerId, "classic")
-      .then((data) => {
-        currentTournamentToken = data.token;
-        if (data.seed) {
-          currentTournamentSeed = data.seed;
-        }
-      })
-      .catch((err) => {
-        console.warn("Could not retrieve session token:", err);
-      });
-  }
-
-  resizeCanvas();
-
-  createTrayBlocks({
-    availableBlocks,
-    canvasWidth: logicalWidth,
-    trayY: layout.trayY,
-    trayH: layout.trayH,
-    boardCellSize: layout.cellSize,
-    boardX: layout.boardX,
-    boardSize: layout.boardSize,
-    rng,
-    handSize: currentMode.handSize,
-    grid: GAME_GRID,
-    blocksPlaced: totalMovesPlaced,
-  });
-
-  particles.clear();
-  floatingTexts.clear();
-  comboBar.reset();
-  updateScoreUI();
-  updateHUDChances();
-  updateModeButtons();
-  updateLevelHUD();
-
-  // Apply dedicated SPONSOR Wallpaper for official prize tournament
-  const gameContainer = document.getElementById("game-container");
-  if (gameContainer) {
-    if (isPaperTheme) {
-      gameContainer.style.background = "none";
-      gameContainer.style.backgroundImage = "none";
-      gameContainer.style.backgroundColor = "#fbf8f2";
-      document.body.style.background = "#efe7d8";
-    } else {
-      wallpaperManager.apply(true); // Dedicated SPONSOR wallpaper!
-    }
+    officialSession = issued;
+    runStartedAt = Date.parse(issued.created_at);
+    storage.remove("bb_pilot_pending_start");
+    await authManager.refreshIdentity();
+    await referralManager.attribute();
+    setupEngine(
+      new GameEngine({ kind: "tournament", seed: Number(issued.seed) }),
+    );
+    saveActiveGameSession();
+    overlay.classList.remove("active");
+    void chancesManager
+      .refresh()
+      .then(updateHUDChances)
+      .catch(() => {});
+  } catch (error) {
+    status.textContent =
+      error instanceof Error ? error.message : "Official play is unavailable.";
+    if (error instanceof RequestError && !error.retryable)
+      storage.remove("bb_pilot_pending_start");
+    const retry = text("button", "Retry starting this attempt", "modal-button");
+    retry.onclick = () => {
+      overlay.classList.remove("active");
+      void initTournamentGame();
+    };
+    card.append(retry);
+    const casual = text("button", "Play Classic", "modal-secondary-button");
+    casual.onclick = () => {
+      overlay.classList.remove("active");
+      initClassicGame();
+    };
+    card.append(casual);
+  } finally {
+    startingOfficial = false;
   }
 }
 
@@ -865,15 +754,21 @@ function updateScoreUI() {
     scoreDisplayEl.textContent = score.toLocaleString();
   }
   if (bestDisplayEl) {
-    const best = Math.max(score, leaderboardManager.getTourneyBestScore());
-    bestDisplayEl.textContent = best > 0 ? best.toLocaleString() : "6,177";
+    const best =
+      currentMode.id === GameModeId.CLASSIC
+        ? Math.max(score, leaderboardManager.getClassicBestScore())
+        : score;
+    bestDisplayEl.textContent = best.toLocaleString();
   }
 }
 
 // Unified Pointer Handlers
 let cachedCanvasRect: DOMRect | null = null;
 
-function getCanvasCoords(clientX: number, clientY: number): { x: number; y: number } {
+function getCanvasCoords(
+  clientX: number,
+  clientY: number,
+): { x: number; y: number } {
   if (!cachedCanvasRect) {
     cachedCanvasRect = canvas.getBoundingClientRect();
   }
@@ -892,7 +787,8 @@ function showGameOverToast(message: string) {
     toastEl = document.createElement("div");
     toastEl.id = "gameOverToastBanner";
     toastEl.className = "game-over-toast-banner";
-    const container = document.getElementById("game-container") || document.body;
+    const container =
+      document.getElementById("game-container") || document.body;
     container.appendChild(toastEl);
   }
   if (toastTimer) clearTimeout(toastTimer);
@@ -913,138 +809,76 @@ function hideGameOverToast() {
 }
 
 function checkBoardGameOver(): boolean {
-  if (gameOver) return false;
-  if (!availableBlocks.some((b) => b.active)) return false;
-
-  if (!canPlaceAnyBlock({ grid: GAME_GRID, availableBlocks })) {
-    gameOver = true;
-    clearActiveGameSession();
-    soundManager.playGameOver();
-
-    // Clean, unified DOM toast banner so player immediately knows why the run ended
-    showGameOverToast("🚫 NO SPACE FOR BRICKS — OUT OF MOVES!");
-
-    if (currentMode.id === GameModeId.LEVELS && currentLevelConfig) {
-      const currentLvl = currentLevelConfig.level;
-      levelFailCountMap[currentLvl] = (levelFailCountMap[currentLvl] || 0) + 1;
-
-      setTimeout(() => {
-        showLevelFailedModal({
-          level: currentLvl,
-          score,
-          reason: "No space for blocks!",
-          canRevive: canReviveInCurrentLevel,
-          onRetry: () => initLevelGame(currentLvl),
-          onReviveMoves: () => {
-            canReviveInCurrentLevel = false;
-            gameOver = false;
-            // Keep board, jewel blocks, and obstacles 100% intact
-            updateLevelHUD();
-            soundManager.playClear(2);
-
-            floatingTexts.spawnMilestone(
-              "✨ RESCUED!",
-              "Rescue pieces incoming — keep going!",
-              layout.boardX + layout.boardSize / 2,
-              layout.boardY + layout.boardSize / 2
-            );
-
-            // ALWAYS generate fresh, guaranteed-playable rescue pieces upon revive!
-            createTrayBlocks({
-              availableBlocks,
-              canvasWidth: logicalWidth,
-              trayY: layout.trayY,
-              trayH: layout.trayH,
-              boardCellSize: layout.cellSize,
-              boardX: layout.boardX,
-              boardSize: layout.boardSize,
-              rng,
-              handSize: currentMode.handSize,
-              allowedTiers: [ShapeTier.HELPER],
-              failCount: Math.max(3, (levelFailCountMap[currentLvl] || 0) + 2),
-              grid: GAME_GRID,
-              blocksPlaced: totalMovesPlaced,
-              maxMoves: currentLevelConfig?.maxMoves,
-              isSpecialDeal: true,
-            });
-            saveActiveGameSession();
-          },
-          onOpenMap: () =>
-            showLevelSelect({
-              onSelectLevel: (lvl) => initLevelGame(lvl),
-              onClose: () => {},
-            }),
-        });
-      }, 1400);
-    } else {
-      // Classic or Official Tournament Mode
-      const isTournament = currentMode.id === GameModeId.TOURNAMENT;
-      try {
-        leaderboardManager.recordTourneyScore(score);
-        sessionManager.finishSession(score);
-      } catch (e) {
-        console.warn("Session score storage error:", e);
-      }
-
-      if (isTournament) {
-        try {
-          const profile = authManager.getProfile();
-          const playerId = profile?.id || "guest_player";
-          const nickname = profile?.nickname || "Guest Player";
-          const activeTourneyId = tournamentConfigManager.getActiveTournamentId();
-
-          submitTournamentScore({
-            playerId,
-            fullName: profile?.fullName || null,
-            nickname,
-            phone: profile?.phone,
-            country: profile?.country,
-            isVerified: !!profile?.verified,
-            mode: "classic",
-            tournamentId: activeTourneyId,
-            score,
-            linesCleared: totalLinesCleared,
-            movesPlaced: totalMovesPlaced,
-            maxCombo: maxComboAchieved,
-            seed: currentTournamentSeed || Date.now(),
-            token: currentTournamentToken || undefined,
-          }).catch((err) => {
-            console.warn("Async tournament score submit fallback:", err);
-          });
-        } catch (authErr) {
-          console.warn("Tournament profile retrieval fallback:", authErr);
-        }
-      }
-
-      // Display Game Over Modal with performance metrics after toast has been clearly absorbed
-      setTimeout(() => {
-        try {
-          showModal(score, currentMode.name, computePerformanceStats());
-        } catch (modalErr) {
-          console.error("showModal execution fallback:", modalErr);
-          showModal(score, currentMode.name);
-        }
-      }, 1400);
-    }
-
-    // Verify any pending referral if newcomer completed a game
-    try {
-      referralManager.verifyPendingReferralOnFirstGame(score).then((res) => {
-        if (res.verified) {
-          updateHUDChances();
-          const cbX = gridOffset.x + (currentMode.gridSize * gridOffset.cellSize) / 2;
-          const cbY = gridOffset.y + (currentMode.gridSize * gridOffset.cellSize) / 2;
-          floatingTexts.spawnMilestone("🎁 WELCOME BONUS!", "+1 Bonus Ticket Unlocked!", cbX, cbY);
-        }
+  if (!engine?.over || handledGameOver) return false;
+  handledGameOver = true;
+  gameOver = true;
+  if (engine.canRevive) saveActiveGameSession();
+  else clearActiveGameSession();
+  soundManager.playGameOver();
+  const finished = engine;
+  if (engine.level && engine.completed) {
+    const lvl = engine.level.level;
+    const par = engine.level.parMoves || engine.level.maxMoves || 20;
+    const saved = Math.max(0, par - engine.moves);
+    levelProgress.completeLevel(lvl, score, engine.stars);
+    queueLevelProgress(engine.options, engine.actions);
+    updateLifetimeBestScore(score);
+    setTimeout(() => {
+      if (engine !== finished) return;
+      showLevelCompleteModal({
+        level: lvl,
+        score,
+        stars: engine.stars,
+        movesUsed: engine.moves,
+        parMoves: par,
+        movesSaved: saved,
+        efficiencyBonus: saved * 120,
+        hasNextLevel: lvl < LEVEL_DATA.length,
+        onNextLevel: () => initLevelGame(lvl + 1),
+        onRetry: () => initLevelGame(lvl),
+        onOpenMap: () =>
+          showLevelSelect({ onSelectLevel: initLevelGame, onClose: () => {} }),
+        onGoTournament: promptTournamentEntry,
       });
-    } catch {}
-
-    return true;
+    }, 350);
+  } else if (engine.level) {
+    showGameOverToast("No space for the remaining pieces.");
+    setTimeout(() => {
+      if (engine !== finished) return;
+      showLevelFailedModal({
+        level: engine.level!.level,
+        score,
+        reason: "No space for blocks",
+        canRevive: canReviveInCurrentLevel,
+        onRetry: () => initLevelGame(engine.level!.level),
+        onReviveMoves: () => {
+          applyGameAction({ type: "revive" });
+          hideLevelModal();
+        },
+        onOpenMap: () =>
+          showLevelSelect({ onSelectLevel: initLevelGame, onClose: () => {} }),
+      });
+    }, 400);
+  } else {
+    if (officialSession) beginSubmission(officialSession, engine.actions);
+    else leaderboardManager.recordClassicScore(score);
+    if (rankedSession && !engine.canRevive) finalizeRankedClassic(finished);
+    setTimeout(() => {
+      if (engine === finished)
+        showModal(score, currentMode.name, computePerformanceStats(),
+          { available: engine.canRevive, used: engine.revived, onRevive: () => {
+            if (engine !== finished || !engine.canRevive || rankedFinalized) return;
+            hideModal();
+            applyGameAction({ type: "revive" });
+          } }, rankedSession ? { onFinish: !rankedFinalized ? () => finalizeRankedClassic(finished) : undefined } : undefined);
+    }, 350);
   }
-  return false;
+  updateAccessibleGame();
+  return true;
 }
 
 function handlePointerDown(clientX: number, clientY: number, isTouch: boolean) {
+  keyboardCursorVisible = false;
   if (gameOver) return;
 
   const { x, y } = getCanvasCoords(clientX, clientY);
@@ -1099,9 +933,78 @@ function handlePointerMove(clientX: number, clientY: number) {
   activeBlock.visualY = y - activeBlock.pieceCenterRelY - currentLift;
 }
 
+function applyGameAction(action: GameAction) {
+  try {
+    if (
+      engine.actions.length >= MAX_ACTIONS - 1 &&
+      action.type === "place" &&
+      !engine.level
+    )
+      action = { type: "end" };
+    const result = engine.apply(action);
+    if (action.type === "revive") {
+      handledGameOver = false;
+      soundManager.playClear(2);
+    }
+    if (result.lines >= 2) multilineClears++;
+    const density = engine.grid.flat().filter(Boolean).length / 64;
+    cumulativeEfficiency += result.lines
+      ? Math.min(1, 0.45 + 0.25 * result.lines)
+      : Math.max(0.2, 1 - density * 0.7);
+    syncEngine();
+    const centerX = layout.boardX + layout.boardSize / 2,
+      centerY = layout.boardY + layout.boardSize / 2;
+    if (result.lines) {
+      if (result.allClear) soundManager.playAllClear();
+      else soundManager.playClear(combo);
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        screenShake = Math.min(10, result.lines * 3);
+        particles.spawnFireworks(centerX, centerY, 18);
+      }
+      const praise = floatingTexts.spawnPraise(result.lines, combo, centerX, centerY,
+        result.points, result.allClear);
+      void soundManager.playPraise(praise);
+      for (const key of result.cleared) {
+        const [x, y] = key.split(",").map(Number);
+        particles.spawnBlockBurst(
+          layout.boardX + (x + 0.5) * layout.cellSize,
+          layout.boardY + (y + 0.5) * layout.cellSize,
+          "#00e5ff",
+          4,
+        );
+      }
+    } else if (action.type === "place") soundManager.playPlace();
+    if (combo >= 5 || engine.revealed.size === 64) unlockPhotoReveal();
+    updateLifetimeBestScore(score);
+    for (const milestone of [1000, 2500, 5000, 8000, 12000, 16000, 20000])
+      if (score >= milestone && lastAnnouncedMilestone < milestone) {
+        lastAnnouncedMilestone = milestone;
+        triggerRandomBlockStyleMutation();
+        break;
+      }
+    announce(
+      action.type === "place"
+        ? "+" +
+            result.points +
+            " points. Score " +
+            score +
+            ". " +
+            result.lines +
+            " lines cleared."
+        : action.type === "revive"
+          ? "Rescue pieces ready."
+          : "Run finished.",
+    );
+    saveActiveGameSession();
+    checkBoardGameOver();
+  } catch (error) {
+    announce(
+      error instanceof Error ? error.message : "That action is unavailable.",
+    );
+  }
+}
 function handlePointerUp() {
   if (!activeBlock) return;
-
   const placement = findBestGridPlacement({
     grid: GAME_GRID,
     block: activeBlock,
@@ -1109,374 +1012,18 @@ function handlePointerUp() {
     blockVisualY: activeBlock.visualY,
     offset: gridOffset,
   });
-
-  if (placement.canPlace) {
-    totalMovesPlaced++;
-
-    // 1. Place onto grid & register special piece aura
-    for (let y = 0; y < activeBlock.shape.length; y++) {
-      for (let x = 0; x < activeBlock.shape[y].length; x++) {
-        if (activeBlock.shape[y][x]) {
-          const gx = placement.gridX + x;
-          const gy = placement.gridY + y;
-          const key = `${gx},${gy}`;
-          GAME_GRID[gy][gx] = activeBlock.color;
-          if (activeBlock.isGlowing) {
-            activeGlowingPositions.add(key);
-          }
-          if (activeBlock.isGolden) {
-            activeGoldenPositions.add(key);
-          }
-        }
-      }
-    }
-
-    // 2. Mark piece consumed
-    availableBlocks[activeBlock.originalIndex].active = false;
-
-    // 3. Track moves placed in Level mode
-    const isLevelMode = currentMode.id === GameModeId.LEVELS && currentLevelConfig !== null;
-    if (isLevelMode) {
-      levelMovesCount++;
-    }
-
-    // 4. Clear lines & spawn particles + collect gems
-    let glowingBlocksBlasted = 0;
-    let goldenBlocksBlasted = 0;
-    const gridSize = GAME_GRID.length;
-
-    // Detect if any glowing or golden blocks are within cleared lines
-    for (let r = 0; r < gridSize; r++) {
-      if (GAME_GRID[r].every((c) => c !== 0)) {
-        for (let c = 0; c < gridSize; c++) {
-          const key = `${c},${r}`;
-          if (activeGlowingPositions.has(key)) glowingBlocksBlasted++;
-          if (activeGoldenPositions.has(key)) goldenBlocksBlasted++;
-        }
-      }
-    }
-    for (let c = 0; c < gridSize; c++) {
-      let colFull = true;
-      for (let r = 0; r < gridSize; r++) {
-        if (GAME_GRID[r][c] === 0) {
-          colFull = false;
-          break;
-        }
-      }
-      if (colFull) {
-        for (let r = 0; r < gridSize; r++) {
-          const key = `${c},${r}`;
-          if (activeGlowingPositions.has(key)) glowingBlocksBlasted++;
-          if (activeGoldenPositions.has(key)) goldenBlocksBlasted++;
-        }
-      }
-    }
-
-    const { linesCleared, clearedBlockCount, gemsCleared, isAllClear, rowsToClear, colsToClear } = checkAndClearLines(
-      GAME_GRID,
-      gridOffset,
-      isLevelMode ? activeGemPositions : undefined,
-      isLevelMode ? activeObstaclePositions : undefined,
-      activeBlock.color
-    );
-
-    // Option A: Unmask / scratch-off background wallpaper tiles under cleared rows & cols
-    if (linesCleared > 0 && rowsToClear && colsToClear) {
-      let newlyRevealed = 0;
-      for (const r of rowsToClear) {
-        for (let x = 0; x < gridSize; x++) {
-          const key = `${x},${r}`;
-          if (!activeRevealedTiles.has(key)) {
-            activeRevealedTiles.add(key);
-            newlyRevealed++;
-          }
-        }
-      }
-      for (const c of colsToClear) {
-        for (let y = 0; y < gridSize; y++) {
-          const key = `${c},${y}`;
-          if (!activeRevealedTiles.has(key)) {
-            activeRevealedTiles.add(key);
-            newlyRevealed++;
-          }
-        }
-      }
-
-      if (newlyRevealed > 0) {
-        const totalTiles = gridSize * gridSize;
-        const percent = Math.round((activeRevealedTiles.size / totalTiles) * 100);
-        const centerBoardX = gridOffset.x + (gridSize * gridOffset.cellSize) / 2;
-        const centerBoardY = gridOffset.y + (gridSize * gridOffset.cellSize) / 2;
-
-        if (activeRevealedTiles.size === totalTiles && !allTilesPreviouslyRevealed) {
-          allTilesPreviouslyRevealed = true;
-          unlockPhotoReveal();
-          floatingTexts.spawnMilestone("🌟 100% PHOTO REVEALED!", "Full Wallpaper Unmasked!", centerBoardX, centerBoardY);
-          particles.spawnFireworks(centerBoardX, centerBoardY, 48);
-          soundManager.playAllClear();
-        } else if (newlyRevealed >= 8) {
-          floatingTexts.spawnMilestone(`🖼️ +${newlyRevealed} TILES REVEALED`, `${percent}% Photo Unmasked`, centerBoardX, centerBoardY);
-        }
-      }
-    }
-
-    // Clean up cleared glowing and golden positions from board
-    for (let r = 0; r < gridSize; r++) {
-      for (let c = 0; c < gridSize; c++) {
-        if (GAME_GRID[r][c] === 0) {
-          const key = `${c},${r}`;
-          activeGlowingPositions.delete(key);
-          activeGoldenPositions.delete(key);
-        }
-      }
-    }
-
-    // Track Skill & Efficiency Metrics
-    if (linesCleared > 0) {
-      totalLinesCleared += linesCleared;
-      if (linesCleared >= 2) multilineClears++;
-    }
-    let occupiedCount = 0;
-    for (let r = 0; r < GAME_GRID.length; r++) {
-      for (let c = 0; c < GAME_GRID[r].length; c++) {
-        if (GAME_GRID[r][c] !== 0) occupiedCount++;
-      }
-    }
-    const density = occupiedCount / (GAME_GRID.length * GAME_GRID.length);
-    const moveEff = linesCleared > 0
-      ? Math.min(1.0, 0.45 + 0.25 * linesCleared)
-      : Math.max(0.2, 1.0 - density * 0.7);
-    cumulativeEfficiency += moveEff;
-
-    // 5. Scoring & combo calculation
-    const blockPoints = countBlocks(activeBlock.shape) * 10;
-    let earnedPoints = blockPoints;
-
-    let specialMultiplier = 1.0;
-    if (goldenBlocksBlasted > 0) {
-      specialMultiplier = 2.0;
-    } else if (glowingBlocksBlasted > 0) {
-      specialMultiplier = 1.5;
-    }
-
-    if (linesCleared > 0) {
-      combo++;
-      if (combo > maxComboAchieved) maxComboAchieved = combo;
-      const baseLinePoints = linesCleared * 100 * combo + clearedBlockCount * 5;
-      const lineMultiplier = Math.round(baseLinePoints * specialMultiplier);
-      earnedPoints += lineMultiplier;
-      score += earnedPoints;
-
-      const centerDropX =
-        gridOffset.x + (placement.gridX + activeBlock.shape[0].length / 2) * gridOffset.cellSize;
-      const centerDropY =
-        gridOffset.y + (placement.gridY + activeBlock.shape.length / 2) * gridOffset.cellSize;
-
-      if (isAllClear) {
-        // Triumphant ALL CLEAR Celebration (+500 pts, chime, fireworks, screen shake)
-        const allClearBonus = 500;
-        score += allClearBonus;
-        soundManager.playAllClear();
-        screenShake = 16;
-        const centerBoardX = gridOffset.x + (gridSize * gridOffset.cellSize) / 2;
-        const centerBoardY = gridOffset.y + (gridSize * gridOffset.cellSize) / 2;
-        floatingTexts.spawnAllClear(centerBoardX, centerBoardY, allClearBonus);
-        particles.spawnFireworks(centerBoardX, centerBoardY, 40);
-        pendingSpecialDeal = true;
-      } else {
-        soundManager.playClear(combo);
-        // Trigger juicy screen shake on combos & multi-lines!
-        screenShake = Math.min(12, linesCleared * 3.5 + (combo >= 2 ? combo * 2.5 : 0));
-        floatingTexts.spawnPraise(linesCleared, combo, centerDropX, centerDropY);
-        floatingTexts.spawnScoreBonus(earnedPoints, centerDropX, centerDropY - 26);
-      }
-
-      // High streaks trigger special piece deals in next tray refill
-      if (combo >= 4) {
-        pendingSpecialDeal = true;
-      }
-      if (combo >= 5) {
-        if (unlockPhotoReveal()) {
-          const centerBoardX = gridOffset.x + (gridSize * gridOffset.cellSize) / 2;
-          const centerBoardY = gridOffset.y + (gridSize * gridOffset.cellSize) / 2;
-          floatingTexts.spawnMilestone("🔓 PHOTO GLASS UNLOCKED!", "Glass Mode Unlocked in Settings", centerBoardX, centerBoardY);
-        }
-      }
-    } else {
-      combo = 0;
-      score += earnedPoints;
-      soundManager.playPlace();
-    }
-
-    comboBar.update(combo);
-    updateScoreUI();
-    updateLifetimeBestScore(score);
-
-    // Dynamic Block Skin Mutation on Milestone Achievements!
-    // As players hit 1000, 2500, 5000, 8000, 12000, 16000 pts, randomly shift authentic block styles!
-    const centerBoardX = gridOffset.x + (gridSize * gridOffset.cellSize) / 2;
-    const centerBoardY = gridOffset.y + (gridSize * gridOffset.cellSize) / 2;
-
-    const skinMilestones = [1000, 2500, 5000, 8000, 12000, 16000, 20000];
-    for (const milestone of skinMilestones) {
-      if (score >= milestone && lastAnnouncedMilestone < milestone) {
-        lastAnnouncedMilestone = milestone;
-        if (!isPaperTheme) {
-          const newSkin = triggerRandomBlockStyleMutation(false);
-          soundManager.playAllClear();
-          floatingTexts.spawnMilestone(
-            `✨ SKIN EVOLUTION!`,
-            `${newSkin.icon} ${newSkin.name.toUpperCase()} UNLOCKED`,
-            centerBoardX,
-            centerBoardY
-          );
-        }
-        break;
-      }
-    }
-
-    // In Official Prize Runs, celebrate competitive milestone ranks!
-    if (
-      currentMode.id !== GameModeId.LEVELS &&
-      !chancesManager.isPracticeMode() &&
-      linesCleared > 0
-    ) {
-      if (score >= 9500 && lastAnnouncedMilestone < 9500) {
-        lastAnnouncedMilestone = 9500;
-        soundManager.playAllClear();
-        floatingTexts.spawnMilestone("👑 PODIUM CONTENDER!", "Estimated Rank #1 - #3 ($100-$250)", centerBoardX, centerBoardY);
-      } else if (score >= 5000 && lastAnnouncedMilestone < 5000) {
-        lastAnnouncedMilestone = 5000;
-        soundManager.playClear(4);
-        floatingTexts.spawnMilestone("🔥 TOP 10 CASH ZONE!", "Inside Weekly Cash Payouts", centerBoardX, centerBoardY);
-      } else if (score >= 2500 && lastAnnouncedMilestone < 2500) {
-        lastAnnouncedMilestone = 2500;
-        soundManager.playClear(3);
-        floatingTexts.spawnMilestone("⭐ TOP 20 ACHIEVED!", "Approaching Cash Prize Line", centerBoardX, centerBoardY);
-      } else if (score >= 1000 && lastAnnouncedMilestone < 1000) {
-        lastAnnouncedMilestone = 1000;
-        floatingTexts.spawnMilestone("🎖️ TOP 50 ENTRY!", "Official Run Advancing", centerBoardX, centerBoardY);
-      }
-    }
-
-    // 6. Level Mode Goal Checking & Victory Condition
-    if (isLevelMode && currentLevelConfig) {
-      activeLevelGoals.forEach((goal) => {
-        if (goal.type === GoalType.LINES) {
-          goal.current += linesCleared;
-        } else if (goal.type === GoalType.SCORE) {
-          goal.current = score;
-        } else if (goal.type === GoalType.GEMS) {
-          goal.current += gemsCleared;
-        }
-      });
-
-      updateLevelHUD();
-
-      const allGoalsMet = activeLevelGoals.every((g) => g.current >= g.target);
-      if (allGoalsMet) {
-        gameOver = true;
-        clearActiveGameSession();
-
-        const currentLvl = currentLevelConfig.level;
-        const parMoves = currentLevelConfig.parMoves || currentLevelConfig.maxMoves || 20;
-        const movesSaved = Math.max(0, parMoves - levelMovesCount);
-        const efficiencyBonus = movesSaved * 120;
-
-        if (movesSaved > 0) {
-          score += efficiencyBonus;
-          updateScoreUI();
-          soundManager.playAllClear();
-          particles.spawnFireworks(
-            layout.boardX + layout.boardSize / 2,
-            layout.boardY + layout.boardSize / 2
-          );
-          floatingTexts.spawnMilestone(
-            "🎯 EFFICIENCY MASTER!",
-            `+${efficiencyBonus.toLocaleString()} PTS (${movesSaved} MOVES SAVED)`,
-            layout.boardX + layout.boardSize / 2,
-            layout.boardY + layout.boardSize / 2
-          );
-        } else {
-          soundManager.playClear(4);
-        }
-
-        const stars = levelProgress.calculateStars(
-          score,
-          currentLevelConfig.starThresholds
-        );
-        levelProgress.completeLevel(currentLvl, score, stars);
-        levelFailCountMap[currentLvl] = 0;
-        updateLifetimeBestScore(score);
-        referralManager.verifyPendingReferralOnFirstGame(score);
-
-        setTimeout(() => {
-          showLevelCompleteModal({
-            level: currentLvl,
-            score,
-            stars,
-            movesUsed: levelMovesCount,
-            parMoves,
-            movesSaved,
-            efficiencyBonus,
-            hasNextLevel: currentLvl < LEVEL_DATA.length,
-            onNextLevel: () => initLevelGame(currentLvl + 1),
-            onRetry: () => initLevelGame(currentLvl, true),
-            onOpenMap: () =>
-              showLevelSelect({
-                onSelectLevel: (lvl) => initLevelGame(lvl),
-                onClose: () => {},
-              }),
-            onGoTournament: () => promptTournamentEntry(),
-          });
-        }, 350);
-
-        activeBlock = null;
-        return;
-      }
-    } else {
-      // Tournament mode anti-cheat log
-      sessionManager.logMove(
-        activeBlock.originalIndex,
-        placement.gridX,
-        placement.gridY,
-        linesCleared,
-        earnedPoints
-      );
-    }
-
-    // 7. Refill tray if all pieces used
-    const allConsumed = availableBlocks.every((b) => !b.active);
-    if (allConsumed) {
-      createTrayBlocks({
-        availableBlocks,
-        canvasWidth: logicalWidth,
-        trayY: layout.trayY,
-        trayH: layout.trayH,
-        boardCellSize: layout.cellSize,
-        boardX: layout.boardX,
-        boardSize: layout.boardSize,
-        rng,
-        handSize: currentMode.handSize,
-        allowedTiers: currentLevelConfig?.allowedTiers,
-        failCount: currentLevelConfig ? levelFailCountMap[currentLevelConfig.level] || 0 : 0,
-        grid: GAME_GRID,
-        blocksPlaced: totalMovesPlaced,
-        maxMoves: currentLevelConfig?.maxMoves,
-        isSpecialDeal: pendingSpecialDeal,
-      });
-      pendingSpecialDeal = false;
-    }
-
-    // Save valid state to local storage for seamless mid-game resume
-    saveActiveGameSession();
-  }
-
+  const slot = activeBlock.originalIndex;
   activeBlock = null;
-
-  // 8. Check Game Over (Board Blocked) - checks whether piece was placed or dropped without valid placement
-  checkBoardGameOver();
+  if (placement.canPlace)
+    applyGameAction({
+      type: "place",
+      slot,
+      x: placement.gridX,
+      y: placement.gridY,
+    });
 }
+
+// Unified Pointer Events
 
 // Unified Pointer Events (mouse + touch + pen) - replaces separate mouse/touch listeners
 let activePointerId: number | null = null;
@@ -1495,7 +1042,7 @@ canvas.addEventListener(
       } catch {}
     }
   },
-  { passive: false }
+  { passive: false },
 );
 
 canvas.addEventListener(
@@ -1505,7 +1052,7 @@ canvas.addEventListener(
     e.preventDefault();
     handlePointerMove(e.clientX, e.clientY);
   },
-  { passive: false }
+  { passive: false },
 );
 
 const endPointer = (e: PointerEvent) => {
@@ -1552,10 +1099,19 @@ if (gameContainerEl && "ResizeObserver" in window) {
   }).observe(gameContainerEl);
 }
 
-// Mute toggle
+// Restore the saved sound preference in both the icon and accessible name.
+function updateMuteButton() {
+  if (!muteBtn) return;
+  const muted = soundManager.isMuted();
+  muteBtn.textContent = muted ? "🔇" : "🔊";
+  muteBtn.setAttribute("aria-label", muted ? "Unmute sound" : "Mute sound");
+  muteBtn.setAttribute("aria-pressed", String(muted));
+  muteBtn.title = muted ? "Unmute sound" : "Mute sound";
+}
+updateMuteButton();
 muteBtn?.addEventListener("click", () => {
-  const isMuted = soundManager.toggleMute();
-  if (muteBtn) muteBtn.textContent = isMuted ? "🔇" : "🔊";
+  soundManager.toggleMute();
+  updateMuteButton();
 });
 
 // Theme toggle (Paper / Dark mode)
@@ -1577,6 +1133,7 @@ landingInfoBtn?.addEventListener("click", () => {
     onStartClassic: () => {
       initClassicGame();
     },
+    onStartLevels: () => showLevelSelect({ onSelectLevel: initLevelGame, onClose: () => {} }),
     onClose: () => {},
   });
 });
@@ -1592,7 +1149,9 @@ wallpaperManager.onChange(() => {
 
 // 3-Way Mode Switch Buttons
 leaderboardBtn?.addEventListener("click", () => {
-  leaderboardManager.show(currentMode.id === GameModeId.LEVELS ? "stars" : "tourney");
+  leaderboardManager.show(
+    currentMode.id === GameModeId.LEVELS ? "stars" : "tourney",
+  );
 });
 
 modeLevelsBtn?.addEventListener("click", () => {
@@ -1617,6 +1176,7 @@ levelRestartBtn?.addEventListener("click", () => {
 });
 
 function promptTournamentEntry() {
+  if (CASUAL_ONLY) { showCasualInfo(); return; }
   const chancesLeft = chancesManager.getChancesRemaining();
   showPreTourneyModal({
     chancesRemaining: chancesLeft,
@@ -1653,6 +1213,11 @@ tournamentBannerEl?.addEventListener("click", () => {
 createGameOverModal({
   onRestart: () => {
     hideModal();
+    if (rankedSession) {
+      if (engine.over) finalizeRankedClassic(engine);
+      openClassicEntry();
+      return;
+    }
     if (currentMode.id === GameModeId.CLASSIC) {
       initClassicGame();
     } else {
@@ -1665,6 +1230,7 @@ createGameOverModal({
     }
   },
   onGoToClassic: () => {
+    if (rankedSession && engine.over) finalizeRankedClassic(engine);
     hideModal();
     initClassicGame();
   },
@@ -1688,9 +1254,11 @@ function gameLoop() {
   ctx.clearRect(0, 0, logicalWidth, logicalHeight);
 
   if (isPaperTheme) {
-    ctx.fillStyle = "#fbf8f2";
+    ctx.fillStyle = CASUAL_ONLY ? "#f5f0e6" : "#fbf8f2";
     ctx.fillRect(0, 0, logicalWidth, logicalHeight);
-  } else if (wallpaperManager.isCustomActive(currentMode.id === GameModeId.TOURNAMENT)) {
+  } else if (
+    wallpaperManager.isCustomActive(currentMode.id === GameModeId.TOURNAMENT)
+  ) {
     // Semi-transparent contrast scrim over custom uploaded photos OR tournament sponsor wallpaper
     ctx.fillStyle = `rgba(10, 15, 29, ${wallpaperManager.getDimming()})`;
     ctx.fillRect(0, 0, logicalWidth, logicalHeight);
@@ -1708,10 +1276,22 @@ function gameLoop() {
     activeGlowingPositions,
     activeGoldenPositions,
     activeRevealedTiles,
-    getPhotoRevealMode()
+    getPhotoRevealMode(),
   );
 
   // Draw Particles & Floating Praise Text
+  if (
+    isKeyboardCursorVisible()
+  ) {
+    ctx.strokeStyle = "#fff066";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(
+      gridOffset.x + keyboardX * gridOffset.cellSize + 2,
+      gridOffset.y + keyboardY * gridOffset.cellSize + 2,
+      gridOffset.cellSize - 4,
+      gridOffset.cellSize - 4,
+    );
+  }
   particles.updateAndDraw(ctx);
   floatingTexts.updateAndDraw(ctx);
 
@@ -1740,7 +1320,7 @@ function gameLoop() {
         activeBlock.color,
         GAME_GRID,
         currentMode.id === GameModeId.LEVELS ? activeGemPositions : undefined,
-        currentWorldTheme ? currentWorldTheme.gemColor : "#ffd600"
+        currentWorldTheme ? currentWorldTheme.gemColor : "#ffd600",
       );
     }
 
@@ -1754,7 +1334,7 @@ function gameLoop() {
       activeBlock.color,
       0.94,
       activeBlock.isGlowing,
-      activeBlock.isGolden
+      activeBlock.isGolden,
     );
   }
 
@@ -1767,6 +1347,196 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
+// Keyboard and screen-reader controls share the same validated action path as dragging.
+let keyboardSlot = 0,
+  keyboardX = 0,
+  keyboardY = 0;
+let keyboardCursorVisible = false;
+function isKeyboardCursorVisible() {
+  return keyboardCursorVisible && !gameOver && !activeBlock &&
+    (document.activeElement === canvas ||
+      !!document.getElementById("keyboard-controls")?.contains(document.activeElement));
+}
+document.addEventListener("pointerdown", () => { keyboardCursorVisible = false; }, true);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Tab") keyboardCursorVisible = true;
+}, true);
+function announce(message: string) {
+  const live = document.getElementById("game-announcement");
+  if (live) live.textContent = message;
+}
+function updateAccessibleGame() {
+  if (!engine) return;
+  const pieces = document.getElementById("accessible-pieces");
+  if (pieces && !pieces.children.length)
+    for (let slot = 0; slot < 3; slot++) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.onclick = () => {
+        keyboardSlot = slot;
+        updateAccessibleGame();
+        announce(
+          "Piece " +
+            (slot + 1) +
+            " selected. Choose a board cell or use arrow keys on the game.",
+        );
+      };
+      pieces.append(button);
+    }
+  pieces?.querySelectorAll("button").forEach((button, slot) => {
+    const piece = engine.tray[slot];
+    button.disabled = !piece?.active;
+    button.textContent =
+      "Piece " + (slot + 1) + (slot === keyboardSlot ? " (selected)" : "");
+    button.setAttribute("aria-pressed", String(slot === keyboardSlot));
+    button.setAttribute(
+      "aria-label",
+      "Piece " +
+        (slot + 1) +
+        ": " +
+        (piece?.active
+          ? piece.shape
+              .map((row) => row.map((c) => (c ? "block" : "gap")).join(" "))
+              .join("; next row: ")
+          : "used"),
+    );
+  });
+  const board = document.getElementById("accessible-board");
+  if (board && !board.children.length)
+    for (let y = 0; y < 8; y++) {
+      const row = document.createElement("div");
+      row.setAttribute("role", "row");
+      for (let x = 0; x < 8; x++) {
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.setAttribute("role", "gridcell");
+        cell.dataset.x = String(x);
+        cell.dataset.y = String(y);
+        cell.onclick = () => {
+          keyboardX = x;
+          keyboardY = y;
+          applyGameAction({ type: "place", slot: keyboardSlot, x, y });
+        };
+        row.append(cell);
+      }
+      board.append(row);
+    }
+  board?.querySelectorAll<HTMLButtonElement>("button").forEach((cell) => {
+    const x = Number(cell.dataset.x),
+      y = Number(cell.dataset.y);
+    const occupied = !!engine.grid[y][x];
+    const label = String.fromCharCode(65 + x) + (y + 1);
+    cell.textContent = label;
+    cell.setAttribute(
+      "aria-label",
+      label +
+        ": " +
+        (occupied
+          ? engine.gems.has(x + "," + y)
+            ? "gem"
+            : "occupied"
+          : "empty"),
+    );
+    cell.setAttribute(
+      "aria-selected",
+      String(x === keyboardX && y === keyboardY),
+    );
+    cell.tabIndex = x === keyboardX && y === keyboardY ? 0 : -1;
+    cell.classList.toggle("occupied", occupied);
+  });
+  document
+    .getElementById("end-run-btn")
+    ?.toggleAttribute("disabled", engine.over || !!engine.level);
+}
+function keyboardPlay(e: KeyboardEvent) {
+  if (document.querySelector(".modal-overlay.active") || !engine || engine.over)
+    return;
+  if (
+    e.target instanceof HTMLElement &&
+    e.target.matches("input,textarea,select")
+  )
+    return;
+  const inGame =
+    e.target === canvas ||
+    (e.target instanceof HTMLElement &&
+      !!e.target.closest("#keyboard-controls"));
+  if (!inGame) return;
+  if (["1", "2", "3"].includes(e.key)) {
+    keyboardSlot = Number(e.key) - 1;
+    announce("Piece " + (keyboardSlot + 1) + " selected.");
+  } else if (e.key.startsWith("Arrow")) {
+    keyboardX = Math.max(
+      0,
+      Math.min(
+        7,
+        keyboardX +
+          (e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0),
+      ),
+    );
+    keyboardY = Math.max(
+      0,
+      Math.min(
+        7,
+        keyboardY + (e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0),
+      ),
+    );
+    announce(String.fromCharCode(65 + keyboardX) + (keyboardY + 1));
+  } else if (
+    (e.key === "Enter" || e.key === " ") &&
+    (e.target === canvas ||
+      (e.target instanceof HTMLElement &&
+        e.target.matches('[role="gridcell"]')))
+  ) {
+    applyGameAction({
+      type: "place",
+      slot: keyboardSlot,
+      x: keyboardX,
+      y: keyboardY,
+    });
+  } else return;
+  keyboardCursorVisible = true;
+  e.preventDefault();
+  updateAccessibleGame();
+  if (e.target !== canvas && e.key.startsWith("Arrow"))
+    document
+      .querySelector<HTMLButtonElement>('#accessible-board [tabindex="0"]')
+      ?.focus();
+}
+document.addEventListener("keydown", keyboardPlay);
+document
+  .getElementById("end-run-btn")
+  ?.addEventListener("click", () => applyGameAction({ type: "end" }));
+(
+  window as unknown as { render_game_to_text: () => string }
+).render_game_to_text = () =>
+  JSON.stringify({
+    coordinates: "x increases right, y increases down; origin top-left",
+    mode: engine?.options.kind,
+    blockStyle: getBlockStyle(),
+    feedback: floatingTexts.getVisibleText(),
+    muted: soundManager.isMuted(),
+    score,
+    over: gameOver,
+    moves: engine?.moves,
+    boardLayout: gridOffset,
+    board: GAME_GRID,
+    pieces: availableBlocks.map((p) => ({
+      shape: p.shape,
+      active: p.active,
+      x: p.x,
+      y: p.y,
+      cellSize: p.cellSize,
+    })),
+    selection: { slot: keyboardSlot, x: keyboardX, y: keyboardY, visible: isKeyboardCursorVisible() },
+    revive: { used: engine?.revived, available: engine?.canRevive },
+    ranked: rankedSession ? { day: rankedSession.day, finalized: rankedFinalized } : null,
+  });
+(
+  window as unknown as { advanceTime: (ms: number) => Promise<void> }
+).advanceTime = async (_ms: number) => {
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+};
+
 // Initialise Theme and Game State
 applyTheme(isPaperTheme);
 
@@ -1776,6 +1546,7 @@ if (!tryResumeSavedGameSession()) {
   initLevelGame(startLevel);
 }
 gameLoop();
+if (!CASUAL_ONLY && hasUnsavedSubmission()) setTimeout(showPendingSubmission, 500);
 
 // First-Time User Welcome Experience: Auto-trigger Landing Hub
 if (isFirstTimeUser()) {
@@ -1787,32 +1558,34 @@ if (isFirstTimeUser()) {
       onStartClassic: () => {
         initClassicGame();
       },
+      onStartLevels: () => showLevelSelect({ onSelectLevel: initLevelGame, onClose: () => {} }),
       onClose: () => {},
     });
   }, 400);
 }
 
-// Poll for completed challenge referrals on game load
-referralManager.pollReferralRewards().then((unclaimed) => {
-  if (unclaimed > 0) {
+// Balances are read-only; the server credits referrals during accepted submissions.
+void existingSession()
+  .then(async (session) => {
+    if (!session) return;
+    await referralManager.attribute();
+    await chancesManager.refresh();
     updateHUDChances();
-    setTimeout(() => {
-      floatingTexts.spawnMilestone(
-        "🎉 CHALLENGE ACCEPTED!",
-        `+${unclaimed} Bonus Tournament Ticket${unclaimed > 1 ? "s" : ""} Unlocked!`,
-        logicalWidth / 2,
-        logicalHeight / 2
-      );
-    }, 1200);
-  }
-});
+  })
+  .catch(() => {});
 
-// Expose sponsor & tournament configuration helper to window for easy administrative customization
+// Local visual preview helpers only. Server events and prize rules cannot be edited here.
 (window as any).tournamentConfig = tournamentConfigManager;
-(window as any).setTournamentConfig = (config: Partial<TournamentSponsorConfig>) => {
+(window as any).setTournamentConfig = (
+  config: Partial<TournamentSponsorConfig>,
+) => {
   tournamentConfigManager.updateConfig(config);
   updateHUDChances();
-  console.log("Tournament config updated:", tournamentConfigManager.getConfig());
+  console.log(
+    "Tournament config updated:",
+    tournamentConfigManager.getConfig(),
+  );
 };
 (window as any).getTournamentConfig = () => tournamentConfigManager.getConfig();
-
+initUpdates();
+initOffline();

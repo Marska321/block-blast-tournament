@@ -1,108 +1,85 @@
-export interface GameMove {
-  pieceIdx: number;
-  gx: number;
-  gy: number;
-  lines: number;
-  points: number;
-  t: number; // elapsed milliseconds since game start
+import type { RunSession, ScoreReceipt } from "../shared/contracts";
+import type { GameAction } from "../shared/engine";
+import { submitTournamentScore, RequestError } from "./supabaseClient";
+import { storage } from "./storage";
+import { dialog, text } from "./dialogs";
+export type SubmissionState =
+  "saving" | "accepted" | "retry needed" | "rejected";
+export interface PendingSubmission {
+  session: RunSession;
+  actions: GameAction[];
+  state: SubmissionState;
+  receipt?: ScoreReceipt;
+  error?: string;
 }
-
-export interface SessionData {
-  sessionId: string;
-  tournamentId?: string;
-  seed: number;
-  moves: GameMove[];
-  finalScore: number;
-  startTime: number;
-  endTime: number;
-  durationMs: number;
+let current: PendingSubmission | null = null;
+try {
+  const raw = storage.get("bb_pilot_submission");
+  if (raw) current = JSON.parse(raw);
+  if (current?.state === "saving") current.state = "retry needed";
+} catch {
+  storage.remove("bb_pilot_submission");
 }
-
-class TournamentSessionManager {
-  private currentSession: SessionData | null = null;
-  private gameStartTime: number = 0;
-
-  public startSession(customSeed?: number, tournamentId?: string): SessionData {
-    const seed =
-      customSeed !== undefined
-        ? customSeed
-        : Math.floor(Math.random() * 2147483647);
-    const sessionId =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : "sess_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-
-    this.gameStartTime = Date.now();
-    this.currentSession = {
-      sessionId,
-      tournamentId: tournamentId || "weekly_partner_cup",
-      seed,
-      moves: [],
-      finalScore: 0,
-      startTime: this.gameStartTime,
-      endTime: 0,
-      durationMs: 0,
-    };
-
-    return this.currentSession;
-  }
-
-  public logMove(
-    pieceIdx: number,
-    gx: number,
-    gy: number,
-    lines: number,
-    points: number,
-  ) {
-    if (!this.currentSession) return;
-    this.currentSession.moves.push({
-      pieceIdx,
-      gx,
-      gy,
-      lines,
-      points,
-      t: Date.now() - this.gameStartTime,
+let busy = false;
+function publish() {
+  if (current) storage.set("bb_pilot_submission", JSON.stringify(current));
+  window.dispatchEvent(new Event("pilot-submission"));
+}
+export function getSubmission() {
+  return current;
+}
+export function hasUnsavedSubmission() {
+  return current?.state === "saving" || current?.state === "retry needed";
+}
+export function showPendingSubmission() {
+  const { card } = dialog(
+    "pendingSubmission",
+    "Your previous official run needs saving",
+  );
+  const status = text(
+    "p",
+    "Your replay is kept on this device. Save it before spending another tournament ticket.",
+  );
+  status.setAttribute("role", "status");
+  card.append(status);
+  const retry = text("button", "Retry saving the previous run", "modal-button");
+  retry.onclick = async () => {
+    retry.setAttribute("disabled", "");
+    await retrySubmission();
+    status.textContent =
+      current?.state === "accepted"
+        ? "Score accepted. You can close this dialog and start your next run."
+        : `${current?.state}: ${current?.error || ""}`;
+    retry.removeAttribute("disabled");
+  };
+  card.append(retry);
+}
+export function beginSubmission(session: RunSession, actions: GameAction[]) {
+  current = { session, actions: structuredClone(actions), state: "saving" };
+  publish();
+  void retrySubmission();
+}
+export async function retrySubmission() {
+  if (!current || busy || current.state === "accepted") return;
+  busy = true;
+  current.state = "saving";
+  publish();
+  try {
+    current.receipt = await submitTournamentScore({
+      sessionId: current.session.id,
+      actions: current.actions,
     });
-  }
-
-  public finishSession(finalScore: number): SessionData | null {
-    if (!this.currentSession) return null;
-    this.currentSession.finalScore = finalScore;
-    this.currentSession.endTime = Date.now();
-    this.currentSession.durationMs =
-      this.currentSession.endTime - this.currentSession.startTime;
-    return this.currentSession;
-  }
-
-  public getSessionData(): SessionData | null {
-    return this.currentSession;
-  }
-
-  /**
-   * Stub for submitting the session to the server.
-   * In production, this issues a POST request with the move replay log.
-   */
-  public async submitScore(
-    userIdentifier?: string,
-  ): Promise<{ success: boolean; rank?: number }> {
-    if (!this.currentSession) return { success: false };
-
-    console.log("[Tournament API Stub] Submitting verified session:", {
-      user: userIdentifier || "guest",
-      sessionId: this.currentSession.sessionId,
-      seed: this.currentSession.seed,
-      moveCount: this.currentSession.moves.length,
-      finalScore: this.currentSession.finalScore,
-      durationMs: this.currentSession.durationMs,
-    });
-
-    // Mock API response delay
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    return {
-      success: true,
-      rank: Math.floor(Math.random() * 5) + 2, // simulated rank for demo
-    };
+    current.state = "accepted";
+    current.error = undefined;
+  } catch (error) {
+    current.state =
+      error instanceof RequestError && !error.retryable
+        ? "rejected"
+        : "retry needed";
+    current.error =
+      error instanceof Error ? error.message : "Could not save your score.";
+  } finally {
+    busy = false;
+    publish();
   }
 }
-
-export const sessionManager = new TournamentSessionManager();
