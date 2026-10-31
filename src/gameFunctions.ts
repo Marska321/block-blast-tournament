@@ -23,6 +23,9 @@ export interface LayoutMetrics {
   boardY: number;
   trayY: number;
   trayH: number;
+  trayX?: number;
+  trayW?: number;
+  trayVertical?: boolean;
 }
 
 export function computeLayout(
@@ -31,17 +34,26 @@ export function computeLayout(
   topInset: number,
   gridSize: number = 8
 ): LayoutMetrics {
-  const pad = Math.max(8, Math.round(w * 0.035));
-  const reservedTrayH = Math.max(115, Math.round(h * 0.20));
+  const pad = Math.max(8, Math.min(18, Math.round(w * 0.035)));
+  if (w >= 560 && w > h * 1.3) {
+    const cellSize = Math.max(12, Math.floor(Math.min(h - topInset - pad * 3, w * .58) / gridSize));
+    const boardSize = cellSize * gridSize;
+    const trayW = Math.min(170, Math.floor(w * .24));
+    const boardX = Math.floor((w - boardSize - trayW - pad * 2) / 2);
+    const boardY = Math.floor(topInset + pad + Math.max(0, h - topInset - boardSize - pad * 2) / 2);
+    return { pad, cellSize, boardSize, boardX, boardY, trayX: boardX + boardSize + pad * 2,
+      trayY: boardY, trayW, trayH: boardSize, trayVertical: true };
+  }
+  const reservedTrayH = Math.max(76, Math.min(156, Math.round((h - topInset) * 0.22)));
   const maxAvailableHeight = h - topInset - reservedTrayH - pad * 3;
   const maxAvailableWidth = w - pad * 2;
   const rawBoardSize = Math.min(maxAvailableWidth, maxAvailableHeight);
-  const cellSize = Math.max(26, Math.floor(rawBoardSize / gridSize));
+  const cellSize = Math.max(12, Math.floor(rawBoardSize / gridSize));
   const boardSize = cellSize * gridSize;
   const boardX = Math.floor((w - boardSize) / 2);
-  const boardY = Math.floor(topInset + pad);
+  const boardY = Math.floor(topInset + pad + Math.max(0, maxAvailableHeight - boardSize) * .5);
   const trayY = Math.floor(boardY + boardSize + pad);
-  const trayH = Math.max(115, h - trayY - pad);
+  const trayH = reservedTrayH;
 
   return { pad, cellSize, boardSize, boardX, boardY, trayY, trayH };
 }
@@ -1619,7 +1631,7 @@ export function drawGrid(
         }
 
         // Bake transparent windows directly onto static board cache once per board update
-        if (hasRevealed && !isPaperTheme && revealMode !== "classic") {
+        if (hasRevealed && revealMode !== "classic") {
           for (let gy = 0; gy < gridSize; gy++) {
             for (let gx = 0; gx < gridSize; gx++) {
               const key = `${gx},${gy}`;
@@ -1989,11 +2001,12 @@ export function drawTray(
   // 1. Tray framing: Subtle rounded container and slot cradles
   if (layout) {
     const count = availableBlocks.length || 3;
-    const trayWidth = layout.boardSize;
-    const trayStartX = layout.boardX;
+    const trayWidth = layout.trayW ?? layout.boardSize;
+    const trayStartX = layout.trayX ?? layout.boardX;
     const trayY = layout.trayY;
     const trayH = layout.trayH;
-    const slotW = trayWidth / count;
+    const slotW = layout.trayVertical ? trayWidth : trayWidth / count;
+    const slotH = layout.trayVertical ? trayH / count : trayH;
 
     ctx.save();
     // Subtle rounded tray container panel matching board width
@@ -2017,10 +2030,10 @@ export function drawTray(
     // Faint slot cradle outlines
     for (let i = 0; i < count; i++) {
       const slotPad = 6;
-      const sx = trayStartX + i * slotW + slotPad;
-      const sy = trayY + slotPad;
+      const sx = trayStartX + (layout.trayVertical ? 0 : i * slotW) + slotPad;
+      const sy = trayY + (layout.trayVertical ? i * slotH : 0) + slotPad;
       const sw = slotW - slotPad * 2;
-      const sh = trayH - slotPad * 2;
+      const sh = slotH - slotPad * 2;
 
       ctx.fillStyle = isPaperTheme
         ? "rgba(0, 0, 0, 0.02)"

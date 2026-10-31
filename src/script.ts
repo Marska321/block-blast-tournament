@@ -1,5 +1,6 @@
 import { initUpdates } from "./updates";
 import { initOffline } from "./offline";
+import { initPlayMenu } from "./playMenu";
 import {
   computeLayout,
   computePieceCellSize,
@@ -170,7 +171,7 @@ function applyTheme(paper: boolean) {
   isPaperTheme = paper;
   document.body.classList.toggle("theme-paper", isPaperTheme);
   if (themeBtn) {
-    themeBtn.textContent = isPaperTheme ? "🌙" : "☀️";
+    themeBtn.textContent = document.body.classList.contains('focused-play') ? (isPaperTheme ? 'Dark appearance' : 'Light appearance') : isPaperTheme ? "🌙" : "☀️";
     themeBtn.setAttribute(
       "title",
       isPaperTheme ? "Switch to Dark Theme" : "Switch to Light Theme",
@@ -353,23 +354,24 @@ let screenShake = 0;
 function positionTrayBlocks() {
   if (!layout) return;
   const count = currentMode.handSize;
-  const trayWidth = layout.boardSize;
-  const trayStartX = layout.boardX;
-  const slotWidth = trayWidth / count;
-  const centerY = layout.trayY + layout.trayH / 2;
+  const trayWidth = layout.trayW ?? layout.boardSize;
+  const trayStartX = layout.trayX ?? layout.boardX;
+  const slotWidth = layout.trayVertical ? trayWidth : trayWidth / count;
+  const slotHeight = layout.trayVertical ? layout.trayH / count : layout.trayH;
 
   availableBlocks.forEach((block, i) => {
     if (!block.active) return;
     const pieceCellSize = computePieceCellSize(
       block.shape,
       slotWidth,
-      layout.trayH,
+      slotHeight,
       layout.cellSize,
     );
     block.cellSize = pieceCellSize;
     const pieceWidth = block.shape[0].length * pieceCellSize;
     const pieceHeight = block.shape.length * pieceCellSize;
-    const slotCenterX = trayStartX + slotWidth * i + slotWidth / 2;
+    const slotCenterX = trayStartX + (layout.trayVertical ? 0 : slotWidth * i) + slotWidth / 2;
+    const centerY = layout.trayY + (layout.trayVertical ? slotHeight * i : 0) + slotHeight / 2;
     block.x = Math.floor(slotCenterX - pieceWidth / 2);
     block.y = Math.floor(centerY - pieceHeight / 2);
   });
@@ -380,7 +382,7 @@ function resizeCanvas() {
   const rect = container
     ? container.getBoundingClientRect()
     : { width: window.innerWidth, height: window.innerHeight };
-  logicalWidth = Math.min(rect.width || window.innerWidth, 500);
+  logicalWidth = Math.min(rect.width || window.innerWidth, CASUAL_ONLY ? 820 : 500);
   logicalHeight = rect.height || window.innerHeight;
 
   cachedCanvasRect = null;
@@ -403,7 +405,7 @@ function resizeCanvas() {
 
   layout = computeLayout(
     logicalWidth,
-    logicalHeight - (document.querySelector("#keyboard-controls summary")?.getBoundingClientRect().height || 30) - 8,
+    logicalHeight - (document.getElementById('keyboard-controls')?.hidden ? 0 : (document.querySelector("#keyboard-controls summary")?.getBoundingClientRect().height || 30)) - 12,
     topInset,
     currentMode.gridSize,
   );
@@ -879,7 +881,7 @@ function checkBoardGameOver(): boolean {
 
 function handlePointerDown(clientX: number, clientY: number, isTouch: boolean) {
   keyboardCursorVisible = false;
-  if (gameOver) return;
+  if (gameOver || document.querySelector('.modal-overlay.active')) return;
 
   const { x, y } = getCanvasCoords(clientX, clientY);
 
@@ -1005,6 +1007,7 @@ function applyGameAction(action: GameAction) {
 }
 function handlePointerUp() {
   if (!activeBlock) return;
+  if (document.querySelector('.modal-overlay.active')) { activeBlock = null; return; }
   const placement = findBestGridPlacement({
     grid: GAME_GRID,
     block: activeBlock,
@@ -1103,7 +1106,7 @@ if (gameContainerEl && "ResizeObserver" in window) {
 function updateMuteButton() {
   if (!muteBtn) return;
   const muted = soundManager.isMuted();
-  muteBtn.textContent = muted ? "🔇" : "🔊";
+  muteBtn.textContent = document.body.classList.contains('focused-play') ? (muted ? 'Sound off' : 'Sound on') : muted ? "🔇" : "🔊";
   muteBtn.setAttribute("aria-label", muted ? "Unmute sound" : "Mute sound");
   muteBtn.setAttribute("aria-pressed", String(muted));
   muteBtn.title = muted ? "Unmute sound" : "Mute sound";
@@ -1265,6 +1268,8 @@ function gameLoop() {
   }
 
   // Draw Grid with theme and gem markers
+  if (currentMode.id !== GameModeId.TOURNAMENT)
+    wallpaperManager.drawBoardWallpaper(ctx, gridOffset, currentMode.gridSize, isPaperTheme);
   drawGrid(
     ctx,
     GAME_GRID,
@@ -1529,6 +1534,8 @@ document
     })),
     selection: { slot: keyboardSlot, x: keyboardX, y: keyboardY, visible: isKeyboardCursorVisible() },
     revive: { used: engine?.revived, available: engine?.canRevive },
+    revealed: [...activeRevealedTiles],
+    wallpaper: wallpaperManager.getCurrentThemeId(),
     ranked: rankedSession ? { day: rankedSession.day, finalized: rankedFinalized } : null,
   });
 (
@@ -1538,6 +1545,8 @@ document
 };
 
 // Initialise Theme and Game State
+initPlayMenu();
+updateMuteButton();
 applyTheme(isPaperTheme);
 
 // Attempt Mid-Game Auto-Resume; otherwise start latest unlocked level

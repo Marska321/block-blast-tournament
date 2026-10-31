@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { gameControl } from './game-control.mjs';
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "vite";
 import { chromium } from "playwright";
@@ -83,11 +84,11 @@ try {
     assert.ok(["Nice!", "Great!", "Lekker!", "Duidelik!", "Aweh!", "Amazing!", "Brilliant!"].includes(state.feedback?.text));
     await page.screenshot({ path: `output/playwright/audio/${phrase.slice(0, -1).toLowerCase()}.png` });
   }
-  await page.locator("#mute-btn").click();
+  await gameControl(page, '#mute-btn');
   assert.equal(await page.locator("#mute-btn").getAttribute("aria-label"), "Unmute sound");
   await page.reload();
   assert.equal(await page.locator("#mute-btn").getAttribute("aria-pressed"), "true");
-  await page.locator("#mute-btn").click();
+  await gameControl(page, '#mute-btn');
   assert.equal(await page.locator("#mute-btn").getAttribute("aria-label"), "Mute sound");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 320, height: 568 });

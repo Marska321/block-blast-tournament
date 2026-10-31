@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { gameControl } from './game-control.mjs';
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "vite";
@@ -72,7 +73,10 @@ try {
     await page.keyboard.press("Enter");
     await page.waitForFunction(() => JSON.parse(window.render_game_to_text()).moves === 1);
     if (run === 0) await page.screenshot({ path: `${dir}/game.png`, fullPage: true });
-    if ((await page.locator("#keyboard-controls").getAttribute("open")) === null)
+    if (!(await page.locator('#keyboard-controls').isVisible())) {
+      await page.locator('#play-menu-btn').click();
+      await page.getByRole('button', { name: 'Keyboard & accessible board controls', exact: true }).click();
+    } else if ((await page.locator("#keyboard-controls").getAttribute("open")) === null)
       await page.locator("#keyboard-controls summary").click();
     await page.locator("#end-run-btn").click();
     await page.getByRole("button", { name: "Play Classic again", exact: true }).waitFor();
@@ -80,14 +84,14 @@ try {
     if (run === 0) await page.screenshot({ path: `${dir}/finished.png`, fullPage: true });
     await page.getByRole("button", { name: "Play Classic again", exact: true }).click();
   }
-  await page.locator("#leaderboard-btn").click();
+  await gameControl(page, '#leaderboard-btn');
   const progress = page.locator("#leaderboardModalOverlay");
   assert.match(await progress.innerText(), /Classic best: 1,777/);
   assert.match(await progress.innerText(), /Adventure: 2 \/ 180/);
   await page.screenshot({ path: `${dir}/progress.png` });
   await page.keyboard.press("Escape");
   assert.equal(await page.locator("#mode-tourney-btn").isDisabled(), true);
-  await page.locator("#landing-info-btn").click();
+  await gameControl(page, '#landing-info-btn');
   await page.locator("#landingRulesBtn").click();
   await page.locator("#casualInfoModal.active").waitFor();
   assert.match(await page.locator("#casualInfoModal").innerText(), /Promotions are coming soon/);
@@ -99,7 +103,7 @@ try {
   if ((await page.locator("#keyboard-controls").getAttribute("open")) !== null)
     await page.locator("#keyboard-controls summary").click();
   await page.screenshot({ path: `${dir}/game-dark.png`, fullPage: true });
-  await page.locator("#theme-btn").click();
+  await gameControl(page, '#theme-btn');
   assert.equal(await page.locator("body").evaluate((el) => el.classList.contains("theme-paper")), true);
   await page.reload();
   await page.waitForFunction(() => typeof window.render_game_to_text === "function");

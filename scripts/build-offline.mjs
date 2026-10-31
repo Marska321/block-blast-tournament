@@ -2,7 +2,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 // Cache only this release's public game shell, never API data or marketing pages.
-const assets = ['/', '/brand-mark.svg', '/favicon.svg', '/favicon.ico', '/favicon-32.png',
+const assets = ['/', '/brand-mark.svg', '/playables-logo.png', '/favicon.svg', '/favicon.ico', '/favicon-32.png',
   '/apple-touch-icon.png', '/push-icon-192.png', '/push-icon-512.png', '/manifest.webmanifest'];
 async function collect(dir) {
   for (const entry of await readdir(`dist/${dir}`, { withFileTypes: true })) {

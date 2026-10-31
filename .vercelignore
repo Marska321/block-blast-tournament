@@ -23,3 +23,5 @@ scripts/generate-push-keys.mjs
 scripts/updates-browser-check.mjs
 scripts/offline-browser-check.mjs
 scripts/offline-update-check.mjs
+scripts/focus-browser-check.mjs
+scripts/game-control.mjs

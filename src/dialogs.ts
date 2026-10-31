@@ -52,7 +52,10 @@ export function installDialogs() {
       if (next) {
         if (restore?.isConnected && next.contains(restore)) restore.focus();
         else (next.querySelector<HTMLElement>(focusable) || next).focus();
-      } else if (restore?.isConnected) restore.focus();
+      } else if (restore?.isConnected) {
+        if (restore.getClientRects().length && !restore.closest('[hidden],[inert]')) restore.focus();
+        else (document.getElementById('play-menu-btn') || document.getElementById('gameCanvas'))?.focus();
+      }
     } else if (next && !next.contains(document.activeElement))
       (next.querySelector<HTMLElement>(focusable) || next).focus();
   }

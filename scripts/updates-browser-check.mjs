@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { gameControl } from './game-control.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { createServer } from 'vite';
@@ -44,11 +45,11 @@ async function scenario({ permission = 'default', ios = false, unsupported = fal
   page.on('pageerror', error => errors.push(error.message));
   page.on('request', req => { if (new URL(req.url()).hostname.endsWith('.supabase.co')) authCount++; });
   await page.goto(origin);
-  await page.locator('#mode-classic-btn').click();
+  await gameControl(page, '#mode-classic-btn');
   await page.locator('#gameCanvas').focus(); await page.keyboard.press('1'); await page.keyboard.press('Enter');
   assert.equal(JSON.parse(await page.evaluate(() => window.render_game_to_text())).moves, 1);
   assert.equal(await page.evaluate(() => window.permissionRequests), 0); assert.equal(readCount, 0); assert.equal(authCount, 0);
-  await page.locator('#updates-btn').click();
+  await gameControl(page, '#updates-btn');
   const panel = page.locator('#updatesModal');
   if (failFeed) {
     await panel.getByRole('button', { name: 'Try again', exact: true }).click();
@@ -84,7 +85,7 @@ async function scenario({ permission = 'default', ios = false, unsupported = fal
   }
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await page.keyboard.press('Escape'); assert.equal(await panel.isVisible(), false);
-  await page.waitForFunction(() => document.activeElement?.id === 'updates-btn');
+  await page.waitForFunction(() => document.activeElement?.id === 'play-menu-btn');
   assert.equal(JSON.parse(await page.evaluate(() => window.render_game_to_text())).moves, 1);
   assert.equal(authCount, 0); await context.close();
 }

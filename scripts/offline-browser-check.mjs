@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { gameControl } from './game-control.mjs';
 import { mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
@@ -40,17 +41,17 @@ try {
   assert.equal(JSON.parse(await page.evaluate(() => window.render_game_to_text())).score, saved.score);
   assert.equal(await page.locator('#connection-status').isVisible(), true);
   await page.screenshot({ path: `${dir}/offline-classic.png`, fullPage: true });
-  await page.locator('#leaderboard-btn').click();
+  await gameControl(page, '#leaderboard-btn');
   await page.locator('#offlineInfo.active').waitFor();
   assert.match(await page.locator('#offlineInfo').innerText(), /do not enter the daily leaderboard/);
   await page.keyboard.press('Escape');
-  await page.locator('#updates-btn').click();
+  await gameControl(page, '#updates-btn');
   await page.locator('#offlineInfo.active').waitFor(); await page.keyboard.press('Escape');
   const apiOffline = await page.evaluate(async () => {
     try { await fetch('/api/events?channel=updates'); return false; } catch { return true; }
   });
   assert.equal(apiOffline, true, 'offline API must fail, never receive cached news or game HTML');
-  await page.locator('#mode-levels-btn').click();
+  await gameControl(page, '#mode-levels-btn');
   await page.locator('[data-level="1"]').click();
   await page.waitForFunction(() => JSON.parse(window.render_game_to_text()).mode === 'levels');
   await page.locator('#gameCanvas').focus(); await page.keyboard.press('1'); await page.keyboard.press('Enter');
@@ -65,24 +66,25 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `no horizontal page overflow at ${width}`);
     assert.ok(await page.evaluate(() => {
       const state = JSON.parse(window.render_game_to_text());
-      const controls = document.querySelector('#keyboard-controls').getBoundingClientRect();
+      const controlEl = document.querySelector('#keyboard-controls');
+      const controls = controlEl.getBoundingClientRect();
       const canvas = document.querySelector('#gameCanvas').getBoundingClientRect();
-      return state.pieces.filter(piece => piece.active).every(piece => canvas.top + piece.y + piece.shape.length * piece.cellSize <= controls.top);
+      return state.pieces.filter(piece => piece.active).every(piece => canvas.top + piece.y + piece.shape.length * piece.cellSize <= (controlEl.hidden ? canvas.bottom : controls.top));
     }), `tray pieces must not be covered by keyboard controls at ${width}`);
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.locator('#theme-btn').click();
+  await gameControl(page, '#theme-btn');
   await page.screenshot({ path: `${dir}/offline-light.png`, fullPage: true });
   await context.setOffline(false);
   await page.waitForFunction(() => document.getElementById('connection-status').hidden);
   await page.route('**/api/events?channel=updates', route => route.fulfill({ json: { publicKey: null, announcements: [] } }));
-  await page.locator('#updates-btn').click();
+  await gameControl(page, '#updates-btn');
   await page.getByText('No promotion is open right now.', { exact: false }).waitFor();
   await page.screenshot({ path: `${dir}/news-coming-soon.png`, fullPage: true });
   await page.keyboard.press('Tab');
   assert.equal(await page.evaluate(() => !!document.activeElement.closest('#updatesModal')), true);
   await page.keyboard.press('Escape');
-  await page.locator('#landing-info-btn').click();
+  await gameControl(page, '#landing-info-btn');
   await page.locator('#landingRulesBtn').click();
   assert.match(await page.locator('#casualInfoModal').innerText(), /saved for offline play/);
   await page.screenshot({ path: `${dir}/about-offline.png`, fullPage: true });

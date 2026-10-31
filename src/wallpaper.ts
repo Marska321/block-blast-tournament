@@ -15,6 +15,11 @@ export interface WallpaperTheme {
 
 export const WALLPAPER_PRESETS: WallpaperTheme[] = [
   {
+    id: "playables", name: "Playables", category: "preset",
+    containerBg: "#18313a", previewGradient: "linear-gradient(135deg, #196c69, #18313a)",
+    icon: "✦", isDark: true, unlockRequirementText: "Reveal a little play",
+  },
+  {
     id: "classic-navy",
     name: "Classic Navy",
     category: "preset",
@@ -201,7 +206,9 @@ const STORAGE_SPONSOR_NAME = "bb_sponsor_name";
 const STORAGE_SPONSOR_PRIZE = "bb_sponsor_prize";
 
 class WallpaperManager {
-  private currentThemeId: string = "classic-navy";
+  private currentThemeId: string = "playables";
+  private boardImage: HTMLImageElement | null = null;
+  private boardImageSource = "";
   private customImageData: string | null = null;
   private customDimming: number = 0.35; // default 35% dark contrast overlay
   private sponsorConfig: SponsorConfig = {
@@ -218,7 +225,7 @@ class WallpaperManager {
 
   private init() {
     try {
-      this.currentThemeId = localStorage.getItem(STORAGE_THEME_ID) || "classic-navy";
+      this.currentThemeId = localStorage.getItem(STORAGE_THEME_ID) || "playables";
       this.customImageData = localStorage.getItem(STORAGE_CUSTOM_IMAGE);
       const savedDim = localStorage.getItem(STORAGE_CUSTOM_DIMMING);
       if (savedDim) this.customDimming = parseFloat(savedDim);
@@ -230,7 +237,7 @@ class WallpaperManager {
       if (savedSponsorName) this.sponsorConfig.name = savedSponsorName;
       if (savedSponsorPrize) this.sponsorConfig.prizeText = savedSponsorPrize;
     } catch {
-      this.currentThemeId = "classic-navy";
+      this.currentThemeId = "playables";
     }
   }
 
@@ -371,7 +378,27 @@ class WallpaperManager {
     if (isTournament) {
       return this.sponsorConfig.customImageData || DEFAULT_SPONSOR_SVG;
     }
-    return this.customImageData;
+    return this.currentThemeId === "playables" ? "/playables-logo.png" : this.currentThemeId === "custom" ? this.customImageData : null;
+  }
+
+  public drawBoardWallpaper(ctx: CanvasRenderingContext2D, offset: { x: number; y: number; cellSize: number }, gridSize: number, paper: boolean) {
+    const source = this.getEffectiveCustomImage();
+    if (!source) return;
+    if (source !== this.boardImageSource) {
+      this.boardImageSource = source;
+      this.boardImage = new Image(); this.boardImage.src = source;
+    }
+    const image = this.boardImage;
+    if (!image?.complete || !image.naturalWidth) return;
+    const size = offset.cellSize * gridSize;
+    const branded = this.currentThemeId === 'playables';
+    const scale = branded ? Math.min(size * .92 / image.naturalWidth, size * .92 / image.naturalHeight)
+      : Math.max(size / image.naturalWidth, size / image.naturalHeight);
+    const w = image.naturalWidth * scale, h = image.naturalHeight * scale;
+    ctx.save(); ctx.beginPath(); ctx.rect(offset.x, offset.y, size, size); ctx.clip();
+    ctx.globalAlpha = branded ? (paper ? .38 : .48) : 1 - this.customDimming;
+    ctx.drawImage(image, offset.x + (size - w) / 2, offset.y + (size - h) / 2, w, h);
+    ctx.restore();
   }
 
   public isCustomActive(isTournament: boolean = false): boolean {
