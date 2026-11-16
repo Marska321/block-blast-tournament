@@ -57,6 +57,9 @@ try {
   await page.locator("#landingModal.active").waitFor();
   assert.equal(await page.locator("body").evaluate((el) => el.classList.contains("theme-paper")), false);
   assert.match(await page.locator("#landingModal").innerText(), /No forced ad breaks/);
+  await page.getByText("How to play", { exact: true }).click();
+  assert.equal(await page.locator(".landing-how-to").evaluate(el => el.open), true);
+  await page.getByText("How to play", { exact: true }).click();
   assert.ok(!(await page.locator("#landingModal").innerText()).includes("ad-free"));
   assert.match(await page.locator("#landingModal").innerText(), /No account or phone number needed/);
   const follow = page.locator("#landingModal").getByRole("link", { name: "Follow Playables on WhatsApp" });

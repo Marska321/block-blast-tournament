@@ -26,7 +26,7 @@ The bell in the game, welcome screen and About panel open **Announcements & noti
 
 The production build generates a content-versioned cache manifest in `dist/notifications-sw.js`. After one successful online visit, Classic and Levels can load and resume offline. The About panel confirms when the offline copy is ready. Installing to the Home Screen is optional but makes reopening easier. Browser storage eviction, private browsing restrictions or clearing site data can remove the copy; the first visit still needs a connection. Local progress remains in browser storage, not in the service-worker cache.
 
-Only the root page, compiled game assets, local fonts and app icons are cached (about 866 KiB with rankings enabled). APIs, announcements, promotions, authentication, scores, claims and external resources are never cached. Daily rankings and announcements explain that a connection is required; offline casual scores are not retroactively ranked. An already-started ranked run retains the existing submission/retry rules and midnight deadline. `/playable/` and `/ar/` are not part of offline support.
+Only the root page, compiled game assets, local fonts and app icons are cached (about 1.3 MiB; exact size is reported by each build). APIs, announcements, promotions, authentication, scores, claims and external resources are never cached. Daily rankings and announcements explain that a connection is required; offline casual scores are not retroactively ranked. An already-started ranked run retains the existing submission/retry rules and midnight deadline. `/playable/` and `/ar/` are not part of offline support.
 
 New workers wait for existing game tabs to close before activation. Existing players with the previous notification-only worker may need to close all game tabs and reopen online once before offline play becomes ready. Failed downloads must leave the old working release available. Online navigations use the network; only a failed connection falls back to the cached shell. HTTP access-control errors are preserved. A release is not ready for offline play until the complete shell installs. Build with `npm run build`, never only `vite build`, because `scripts/build-offline.mjs` is required. Keep this script in any deployment source allowlist. Keep the existing worker URL/scope to preserve push subscriptions.
 
@@ -234,3 +234,22 @@ Request logs contain operation names, status/error codes, and durations; they ex
 Run dependency audit, behavioral tests, build/type checks, and browser tests before deployment. Inspect screenshots for small mobile and landscape layouts. Keep the service-role key out of build artifacts. Regularly remove expired rows from `pilot_rate_limits` using an operator job, and set data-retention rules for completed claims appropriate to the actual promotion.
 
 Guest accounts, legal replay validation, CAPTCHA, and rate limits reduce abuse; they do not prove a unique person or prevent all automated play. Keep prizes and participation limited enough for meaningful manual winner review during the pilot.
+
+
+## Launch reliability checks
+
+GitHub Actions runs the unit/database tests, production build, casual mobile flow,
+and daily-ranked browser integration on pushes and pull requests. Browser fixtures
+isolate guest Auth/CAPTCHA; they do not replace a physical-device or hosted check.
+
+Pending score writes retain the active resume copy until the submission is stored
+or the server accepts it. Storage failures show a keep-tab-open warning. A full or
+blocked browser cannot guarantee persistence: do not close a tab with an unsaved
+score. Casual results display the personal best and a single replay action.
+The welcome screen includes an optional keyboard and touch guide.
+
+Public game fonts use WOFF2, retaining the bundled font licences. Guest play remains
+the launch identity model. Account linking is deferred. Before rollout, validate
+physical Android/iPhone play, production guest CAPTCHA, backups and monitoring.
+A shared-seed daily challenge and retention analytics are follow-up features;
+current daily rankings keep their existing per-run seed rules.

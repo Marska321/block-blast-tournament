@@ -1,3 +1,4 @@
+import { gameControl } from "./game-control.mjs";
 import assert from "node:assert/strict";
 import { readFile, mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
@@ -86,6 +87,7 @@ await context.route("**/api/classic*", async route => {
   } catch (error) { await route.fulfill({ status: error.status || 500, json: { error: error.code, message: error.message } }); }
 });
 const page = await context.newPage();
+page.setDefaultTimeout(15000);
 const errors = [];
 page.on("pageerror", error => errors.push(error.message));
 const state = () => page.evaluate(() => JSON.parse(window.render_game_to_text()));
@@ -115,9 +117,9 @@ async function naturalFailure(session) {
 await mkdir("output/playwright/classic-daily", { recursive: true });
 try {
   await page.goto("http://127.0.0.1:5196");
-  await page.locator("#mode-classic-btn").click();
+  await gameControl(page, "#mode-classic-btn");
   assert.equal(apiRequests, 0); assert.equal(authRequests, 0);
-  await page.locator("#leaderboard-btn").click();
+  await gameControl(page, "#leaderboard-btn");
   await page.locator("#classicRankedStart").waitFor();
   assert.equal(authRequests, 0);
   await page.locator("#classicRankedStart").click();
@@ -138,11 +140,12 @@ try {
   assert.equal((await state()).score, first.score);
   await page.reload();
   assert.equal((await state()).revive.used, true);
-  await page.locator("#keyboard-controls summary").click();
+  await page.locator("#play-menu-btn").click();
+  await page.getByRole("button", { name: "Keyboard & accessible board controls" }).click();
   await page.locator("#end-run-btn").click();
   await page.getByText(/retry needed — Connection interrupted/).waitFor();
   await page.reload();
-  await page.locator("#leaderboard-btn").click();
+  await gameControl(page, "#leaderboard-btn");
   await page.getByRole("button", { name: "Retry saving daily score" }).click();
   await page.getByText(/Accepted · .*Rank #/).waitFor();
   await page.getByRole("button", { name: "Refresh board" }).click();
@@ -168,7 +171,19 @@ try {
   await page.getByRole("button", { name: "Start my ranked run", exact: true }).click();
   await page.waitForFunction(() => JSON.parse(window.render_game_to_text()).ranked !== null && !JSON.parse(window.render_game_to_text()).over);
   await naturalFailure(sessions.at(-1));
+  failSubmit = true;
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) {
+      if (key === "bb_classic_submission") throw new DOMException("Full", "QuotaExceededError");
+      return original.call(this, key, value);
+    };
+  });
   await page.getByRole("button", { name: "Finish & save daily score", exact: true }).click();
+  await page.getByText(/retry needed — Connection interrupted/).waitFor();
+  await page.getByText(/Keep this tab open until the server accepts/).waitFor();
+  assert.ok(await page.evaluate(() => localStorage.getItem("bb_in_progress_game")), "retain resume copy when submission storage fails");
+  await page.getByRole("button", { name: "Retry saving daily score" }).click();
   await page.getByText(/Accepted · .*Rank #/).waitFor();
   assert.equal(await page.locator("#classicReviveBtn").count(), 0);
   assert.equal((await state()).ranked.finalized, true);

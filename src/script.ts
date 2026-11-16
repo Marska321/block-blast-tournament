@@ -252,7 +252,7 @@ function computePerformanceStats(): PerformanceStats {
 const STORAGE_KEY_ACTIVE_SESSION = "bb_in_progress_game";
 
 function saveActiveGameSession() {
-  if (!engine || rankedFinalized || (engine.over && !engine.canRevive)) return;
+  if (!engine || rankedFinalized || (engine.over && !engine.canRevive && !rankedSession && !officialSession)) return;
   storage.set(
     STORAGE_KEY_ACTIVE_SESSION,
     JSON.stringify({
@@ -290,7 +290,7 @@ function tryResumeSavedGameSession(): boolean {
     )
       return false;
     const restored = replay(saved.options, saved.actions);
-    if (restored.over && !restored.canRevive) return false;
+    if (restored.over && !restored.canRevive && !saved.rankedSession && !saved.officialSession) return false;
     officialSession = saved.officialSession;
     rankedSession = CLASSIC_RANKED_ENABLED && saved.options.kind === "classic" ? saved.rankedSession || null : null;
     if (rankedSession && (rankedSession.engine_version !== ENGINE_VERSION || Number(rankedSession.seed) !== saved.options.seed))
@@ -647,8 +647,7 @@ configureClassicStart(async (nickname) => {
 function finalizeRankedClassic(finished: GameEngine) {
   if (engine !== finished || !rankedSession || rankedFinalized) return;
   rankedFinalized = true;
-  clearActiveGameSession();
-  beginClassicSubmission(rankedSession, finished.actions);
+  if (beginClassicSubmission(rankedSession, finished.actions)) clearActiveGameSession();
   document.getElementById("classicReviveBtn")?.remove();
 }
 async function initTournamentGame(_isPractice = false, _isResume = false) {
@@ -814,8 +813,8 @@ function checkBoardGameOver(): boolean {
   if (!engine?.over || handledGameOver) return false;
   handledGameOver = true;
   gameOver = true;
-  if (engine.canRevive) saveActiveGameSession();
-  else clearActiveGameSession();
+  if (engine.canRevive || rankedSession || officialSession) saveActiveGameSession();
+  else if (!rankedSession && !officialSession) clearActiveGameSession();
   soundManager.playGameOver();
   const finished = engine;
   if (engine.level && engine.completed) {
@@ -862,7 +861,9 @@ function checkBoardGameOver(): boolean {
       });
     }, 400);
   } else {
-    if (officialSession) beginSubmission(officialSession, engine.actions);
+    if (officialSession) {
+      if (beginSubmission(officialSession, engine.actions)) clearActiveGameSession();
+    }
     else leaderboardManager.recordClassicScore(score);
     if (rankedSession && !engine.canRevive) finalizeRankedClassic(finished);
     setTimeout(() => {

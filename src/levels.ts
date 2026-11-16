@@ -1,3 +1,4 @@
+import { storage } from "./storage";
 import { LEVEL_DATA } from "../shared/levels";
 export * from "../shared/levels";
 
@@ -31,7 +32,7 @@ export class LevelProgressManager {
 
   private save() {
     try {
-      localStorage.setItem(PROGRESS_KEY, JSON.stringify(this.progress));
+      storage.set(PROGRESS_KEY, JSON.stringify(this.progress));
     } catch {
       // Storage full or disabled
     }

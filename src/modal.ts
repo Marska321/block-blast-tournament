@@ -1,3 +1,4 @@
+import { isStorageHealthy } from "./storage";
 import { dialog, text } from "./dialogs";
 import { chancesManager } from "./chances";
 import { leaderboardManager } from "./leaderboard";
@@ -41,6 +42,7 @@ export function showModal(
     ),
     text("p", `${score.toLocaleString()} points`, "score-value"),
   );
+  if (!official) card.append(text("p", `Personal best: ${leaderboardManager.getClassicBestScore().toLocaleString()} points`));
   if (perf)
     card.append(
       text(
@@ -70,7 +72,8 @@ export function showModal(
       ? submission
         ? `${submission.state}${submission.receipt ? ` · Accepted score ${submission.receipt.score.toLocaleString()} · Current rank #${submission.receipt.rank}` : ""}${submission.error ? ` — ${submission.error}` : ""}`
         : "This run has not been submitted."
-      : ranked ? "Local copy saved on this device." : "Casual score saved on this device.";
+      : ranked ? "Daily score status is shown above." : isStorageHealthy() ? "Personal best saved on this device." : "Browser storage is unavailable. Your progress may be lost when this tab closes.";
+    if (official && submission?.state !== "accepted" && !isStorageHealthy("bb_pilot_submission")) status.textContent += " Keep this tab open until your score is accepted; a recovery copy could not be saved.";
     retry.hidden =
       !official || !submission || submission.state !== "retry needed";
   }
@@ -94,6 +97,7 @@ export function showModal(
     "modal-secondary-button",
   );
   casual.onclick = classic;
+  casual.hidden = !official && !ranked;
   const standings = text(
     "button",
     CLASSIC_RANKED_ENABLED ? "Daily leaderboard & streak" : CASUAL_ONLY ? "View your progress" : "View accepted standings / prize claims",

@@ -22,7 +22,7 @@ const server = createServer(async (req, res) => {
   if (!file.startsWith(root + '\\') && !file.startsWith(root + '/')) { res.writeHead(403); return res.end(); }
   try {
     const data = await readFile(file);
-    const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.ttf': 'font/ttf' };
+    const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
     res.setHeader('Content-Type', mime[extname(file)] || 'application/octet-stream');
     if (extname(file) === '.html') for (const h of headers) res.setHeader(h.key, h.value);
     res.end(data);
