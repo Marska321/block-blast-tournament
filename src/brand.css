@@ -1,5 +1,5 @@
-@font-face { font-family: Fredoka; src: url('/fonts/fredoka.ttf') format('truetype'); font-weight: 300 700; font-display: swap; }
-@font-face { font-family: 'DM Sans'; src: url('/fonts/dm-sans.ttf') format('truetype'); font-weight: 100 1000; font-display: swap; }
+@font-face { font-family: Fredoka; src: url('/fonts/fredoka.woff2') format('woff2'); font-weight: 300 700; font-display: swap; }
+@font-face { font-family: 'DM Sans'; src: url('/fonts/dm-sans.woff2') format('woff2'); font-weight: 100 1000; font-display: swap; }
 
 /* Blok Blaster: a pocket-sized playroom, warm paper and tactile colour. */
 .game-brand-bar { display: flex; align-items: center; justify-content: space-between; pointer-events: auto; }
@@ -126,3 +126,7 @@ body.casual-launch .hud-btn { width: 44px; height: 44px; min-width: 44px; }
   body.casual-launch .hud-score-val { font-size: 38px; margin-top: 0; }
   body.casual-launch .mode-tab { min-height: 34px; padding-block: 6px; }
 }
+
+.landing-how-to { text-align: left; margin: 12px 0; font-size: 14px; }
+.landing-how-to summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.landing-how-to p { line-height: 1.5; }

@@ -2,7 +2,7 @@ import type { GameAction } from "../shared/engine";
 import type { ClassicBoard, ClassicPending, ClassicReceipt, ClassicSession } from "../shared/classic";
 import { api, ensureGuest, RequestError } from "./supabaseClient";
 import { dialog, text } from "./dialogs";
-import { storage } from "./storage";
+import { storage, isStorageHealthy } from "./storage";
 import { CLASSIC_RANKED_ENABLED } from "./launch";
 import { classicDateLabel, downloadClassicCard } from "./classicCard";
 import { classicDisplayEntries } from "./classicChallengers";
@@ -22,8 +22,9 @@ export function configureClassicStart(start: (nickname: string) => Promise<void>
 export function getClassicSubmission() { return pending; }
 export function hasPendingClassic() { return pending?.state === "saving" || pending?.state === "retry needed"; }
 function publish() {
-  if (pending) storage.set(pendingKey, JSON.stringify(pending));
+  const persisted = !pending || storage.set(pendingKey, JSON.stringify(pending));
   window.dispatchEvent(new Event("classic-submission"));
+  return persisted;
 }
 export async function requestClassicSession(nickname: string) {
   if (!navigator.onLine) throw new Error("Reconnect to start a ranked run. Classic and Levels are available offline.");
@@ -47,8 +48,9 @@ export async function requestClassicSession(nickname: string) {
 }
 export function beginClassicSubmission(session: ClassicSession, actions: GameAction[]) {
   pending = { session, actions: structuredClone(actions), state: "saving" };
-  publish();
+  const persisted = publish();
   void retryClassicSubmission();
+  return persisted;
 }
 export async function retryClassicSubmission() {
   if (!pending || busy || pending.state === "accepted" || pending.state === "rejected") return;
@@ -61,6 +63,10 @@ export async function retryClassicSubmission() {
     });
     pending.state = "accepted";
     pending.error = undefined;
+    try {
+      const active = JSON.parse(storage.get("bb_in_progress_game") || "null");
+      if (active?.rankedSession?.id === pending.session.id) storage.remove("bb_in_progress_game");
+    } catch { /* A malformed resume copy cannot affect the accepted receipt. */ }
   } catch (error) {
     pending.state = error instanceof RequestError && !error.retryable ? "rejected" : "retry needed";
     pending.error = error instanceof Error ? error.message : "Could not save your daily score.";
@@ -114,10 +120,12 @@ export function appendClassicSubmission(parent: HTMLElement, finish?: () => void
     done.hidden = decided;
     retry.hidden = !decided || pending?.state !== "retry needed";
     if (!decided) { status.textContent = "Take your free revive, or finish now and save this score to today's board."; return; }
+    const warning = pending?.state !== "accepted" && !isStorageHealthy(pendingKey) ? " Browser storage is unavailable. Keep this tab open until the server accepts your score." : "";
     status.textContent = pending ? pending.state === "accepted" && pending.receipt
       ? `Accepted · ${pending.receipt.score.toLocaleString()} points · Rank #${pending.receipt.rankAtAcceptance} when accepted. Open the daily board for your current rank.`
       : `${pending.state === "saving" ? "Saving daily score…" : pending.state}${pending.error ? " — " + pending.error : ""}`
       : "No daily score waiting to save.";
+    status.textContent += warning;
   }
   render();
   const listener = () => {

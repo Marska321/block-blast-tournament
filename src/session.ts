@@ -22,8 +22,9 @@ try {
 }
 let busy = false;
 function publish() {
-  if (current) storage.set("bb_pilot_submission", JSON.stringify(current));
+  const persisted = !current || storage.set("bb_pilot_submission", JSON.stringify(current));
   window.dispatchEvent(new Event("pilot-submission"));
+  return persisted;
 }
 export function getSubmission() {
   return current;
@@ -56,8 +57,9 @@ export function showPendingSubmission() {
 }
 export function beginSubmission(session: RunSession, actions: GameAction[]) {
   current = { session, actions: structuredClone(actions), state: "saving" };
-  publish();
+  const persisted = publish();
   void retrySubmission();
+  return persisted;
 }
 export async function retrySubmission() {
   if (!current || busy || current.state === "accepted") return;

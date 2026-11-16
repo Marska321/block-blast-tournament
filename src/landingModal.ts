@@ -115,6 +115,7 @@ export function createLandingModal() {
         <div class="landing-block-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="landing-proof"><span>No download</span><span>No forced ad breaks</span></div>
         <p class="landing-simple-copy">Place blocks. Clear lines. Beat your best.<br/>No account or phone number needed.</p>
+        <details class="landing-how-to"><summary>How to play</summary><p>Drag a block from the tray onto an empty space. Fill any row or column to clear it. Place all three blocks to get a fresh tray. The run ends when none of your blocks fit.</p><p>Keyboard: choose a block with 1, 2 or 3, move with the arrow keys, and press Enter to place it.</p></details>
         <div class="landing-mode-choices">
           <button id="landingStartClassicBtn" class="modal-button classic-return-btn"><span class="choice-number">01</span><span>Play Classic<small>Endless room to improve</small></span><span class="choice-arrow">↗</span></button>
           <button id="landingStartTourneyBtn" class="modal-button"><span class="choice-number">02</span><span>Explore Levels<small>60 puzzles. 180 stars to collect.</small></span><span class="choice-arrow">↗</span></button>
