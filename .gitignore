@@ -14,3 +14,10 @@ supabase/.temp/
 
 .vercel
 .env*
+
+# Private database backups, never source artifacts
+backups/
+*.pgdump
+*.pgdump.enc
+*.pgdump.enc.partial
+*.backup-key

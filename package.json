@@ -12,7 +12,10 @@
     "claims": "node --env-file-if-exists=.env.local --import tsx scripts/claims.ts",
     "updates": "node --env-file-if-exists=.env.local --env-file-if-exists=.env.push.local --import tsx scripts/updates.ts",
     "push:keys": "node scripts/generate-push-keys.mjs",
-    "test:updates:browser": "node scripts/updates-browser-check.mjs"
+    "test:updates:browser": "node scripts/updates-browser-check.mjs",
+    "ops:health": "node scripts/ops/health.mjs",
+    "ops:backup": "node --env-file-if-exists=.env.ops.local scripts/ops/backup.mjs",
+    "ops:rehearse": "node scripts/ops/rehearse.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.10",
