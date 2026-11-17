@@ -5,7 +5,7 @@
 - Hourly ChatGPT health monitoring is enabled for both public domains. Persistent failures produce a notification in the originating chat. Delivery depends on task execution and the user's notification settings; this is a best-effort hourly check, not a 24/7 incident response service.
 - `npm run ops:health` performs the same credential-free checks on demand: homepage, JS/CSS and fresh database-backed daily rankings. It never creates users or scores. A nonzero exit means health could not be verified; inspect whether the cause is the service or the runner's network.
 - It does not measure client crash rates, guest signup, database capacity or backup freshness. Vercel's current runtime logs provide short-term diagnostics; long-term error collection remains follow-up work.
-- Production backup access has NOT been configured. The connected Supabase account does not contain project `ivtbxaoflwuzkfbgtedh`. No production snapshot or backup schedule has been created. GitHub Actions is currently blocked by the GitHub account's billing lock.
+- Production backup access has NOT been configured. Supabase access to project `ivtbxaoflwuzkfbgtedh` was verified on 17 November 2026, but private database credentials on the backup runner are not configured. No production snapshot or backup schedule has been created. GitHub Actions is currently blocked by the GitHub account's billing lock.
 
 The public game and API already log safe operation/status/duration fields. During an incident, inspect Vercel runtime errors for the production project `block-blast-tournament` and Supabase Auth/Postgres logs. Do not copy tokens, claim codes, contacts or request bodies into an incident report.
 
@@ -76,3 +76,7 @@ Restore only to an explicitly identified disposable database first. Restore role
 For a fresh Supabase target, follow the current [Supabase backup/restore guide](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore). Managed Auth/Storage tables, triggers, roles, extensions, Vault and settings require provider-specific handling; this scoped custom archive is not a one-command project clone. Review an archive's table of contents and prepare the target-specific restore steps before executing them.
 
 Verify real row counts, ranks, Auth linkage, policies, grants, replay submission and idempotent retries on the isolated target. Keep emails, push delivery and prize operations disabled there. Record the snapshot date, verification results and recovery duration privately, without player data. A production restore/cutover requires an explicit recovery decision and target verification.
+
+## Windows and Google Drive
+
+Follow [Windows backup setup](windows-backups.md) for the local setup wizard, private password/key storage and Task Scheduler job. This must run on the owner's Windows PC. Google Drive receives encrypted archives; scheduling and successful cloud upload must be verified there.

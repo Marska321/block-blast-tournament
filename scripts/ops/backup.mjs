@@ -2,9 +2,13 @@ import { pipeline } from 'node:stream/promises';
 import { randomBytes } from 'node:crypto';
 import { readFile, mkdir, rename, unlink, writeFile, open } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
-import { resolve, join } from 'node:path';
+import { resolve, join, relative, isAbsolute } from 'node:path';
 import { encrypt, decrypt } from './archive.mjs';
 const project = 'ivtbxaoflwuzkfbgtedh';
+function insideSource(path) {
+  const rel = relative(resolve('.'), resolve(path));
+  return rel === '' || (!rel.startsWith('..' + (process.platform === 'win32' ? '\\' : '/')) && rel !== '..' && !isAbsolute(rel));
+}
 const keyFile = process.env.BACKUP_KEY_FILE;
 const directory = process.env.BACKUP_DIR;
 function child(command, args, options={}) {
@@ -15,7 +19,7 @@ function child(command, args, options={}) {
 }
 try {
   if (!keyFile) throw new Error('Set BACKUP_KEY_FILE to a private path outside the repository');
-  if (resolve(keyFile) === resolve('.') || resolve(keyFile).startsWith(resolve('.') + '/')) throw new Error('Keep the backup key outside the source repository');
+  if (insideSource(keyFile)) throw new Error('Keep the backup key outside the source repository');
   if (process.argv[2] === 'keygen') {
     await writeFile(keyFile,randomBytes(32),{flag:'wx',mode:0o600});
     console.log('Created backup key. Store a second copy separately in a password manager.');
@@ -29,7 +33,7 @@ try {
       console.log('Encrypted backup authentication passed. A separate restore rehearsal is still required.');
     } else if (process.argv[2] === 'unpack') {
       const target = process.env.BACKUP_RESTORE_FILE;
-      if (!target || resolve(target).startsWith(resolve('.') + '/') || resolve(target) === resolve('.'))
+      if (!target || insideSource(target))
         throw new Error('Set BACKUP_RESTORE_FILE outside the source repository');
       const partial = resolve(target) + '.partial';
       let created = false;
@@ -52,7 +56,7 @@ try {
         throw new Error('Explicit production direct/session-pooler PGHOST, PGUSER, PGPORT=5432, PGDATABASE=postgres and PGSSLMODE=verify-full required');
       if(!directory)throw new Error('Set BACKUP_DIR to private backup storage');
       const root=resolve(directory);
-      if(root.startsWith(resolve('.')+'/') || root===resolve('.'))throw new Error('Backup storage must be outside the source repository');
+      if(insideSource(root))throw new Error('Backup storage must be outside the source repository');
       await mkdir(root,{recursive:true,mode:0o700});
       const name=`blokblaster-${new Date().toISOString().replaceAll(':','-')}-${randomBytes(4).toString('hex')}.pgdump.enc`;
       const final=join(root,name), partial=final+'.partial';
