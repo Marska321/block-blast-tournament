@@ -71,3 +71,7 @@ If `pg_dump` fails, check the exact project/host, port 5432, certificate trust, 
 - Drive sync, task failures and 26-hour snapshot freshness still require operator checks; the hourly public-site monitor cannot see your PC or Drive uploads.
 - No automatic retention deletion is enabled. Keep seven daily and four weekly snapshots initially; do not delete the latest verified snapshot before a newer restore is tested. Monitor Drive's available space.
 - See [operations](operations.md) for backup scope, excluded project settings/file bytes, and the isolated restore procedure.
+
+## Diagnose a failed first backup
+
+Run `powershell.exe -NoProfile -File .\scripts\ops\diagnose-windows-backup.ps1` from this checkout. It checks the configured files and performs a TLS/database login and read-only dump, discarding the dump without saving it. It prints only safe diagnostic codes; it never prints passwords, keys or raw database errors. It changes no database data or backup configuration. Keep the existing recovery key. If it reports `DATABASE_TOOL_FAILED_OTHER`, the operator must inspect raw PostgreSQL diagnostics privately rather than post them in chat.
