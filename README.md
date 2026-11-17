@@ -253,3 +253,10 @@ the launch identity model. Account linking is deferred. Before rollout, validate
 physical Android/iPhone play, production guest CAPTCHA, backups and monitoring.
 A shared-seed daily challenge and retention analytics are follow-up features;
 current daily rankings keep their existing per-run seed rules.
+
+## Monitoring and encrypted backups
+
+See [operations](docs/operations.md) for the enabled hourly public-health monitor,
+credential-free checks, encrypted database backups and isolated restore rehearsal.
+Production backup credentials, scheduling and private archive storage still need
+operator setup; no live backup is claimed by the setup documentation.
